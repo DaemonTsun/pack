@@ -1,5 +1,6 @@
 
-// v1.0
+// v1.1
+// fix string writing
 
 #include <assert.h>
 #include <stdio.h>
@@ -348,6 +349,17 @@ size_t write(memory_stream *stream, const void *in, size_t size, size_t nmemb)
     return write_size / size;
 }
 
+size_t write(memory_stream *stream, const char *str)
+{
+    assert(stream != nullptr);
+    assert(stream->data != nullptr);
+    assert(str != nullptr);
+    assert(stream->position < stream->size);
+    
+    size_t write_size = strlen(str);
+    return write(stream, str, write_size);
+}
+
 size_t write_at(memory_stream *stream, const void *in, size_t offset, size_t size)
 {
     assert(stream != nullptr);
@@ -366,6 +378,16 @@ size_t write_at(memory_stream *stream, const void *in, size_t offset, size_t siz
 
     seek(stream, offset, SEEK_SET);
     return write(stream, in, size, nmemb);
+}
+
+size_t write_at(memory_stream *stream, const char *str, size_t offset)
+{
+    assert(stream != nullptr);
+    assert(stream->data != nullptr);
+    assert(str != nullptr);
+
+    size_t write_size = strlen(str);
+    return write_at(stream, str, write_size, offset);
 }
 
 size_t write_block(memory_stream *stream, const void *in)
