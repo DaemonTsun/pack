@@ -1,5 +1,6 @@
 
-// v1.0
+// v1.1
+// add seek_next_alignment
 
 #include <assert.h>
 #include <stdarg.h>
@@ -137,6 +138,18 @@ int seek_block(file_stream *stream, long nth_block, int whence)
     // SEEK_CUR
     size_t cur = (ftello(stream->handle) / bs) * bs;
     return fseeko(stream->handle, cur + block_pos, SEEK_SET);
+}
+
+int seek_next_alignment(file_stream *stream, size_t alignment)
+{
+    assert(stream != nullptr);
+    assert(stream->handle != nullptr);
+    assert(alignment > 0);
+
+    size_t npos = tell(stream);
+    npos = (npos + alignment - 1) / alignment * alignment;
+
+    return fseeko(stream->handle, npos, SEEK_SET);
 }
 
 size_t tell(file_stream *stream)

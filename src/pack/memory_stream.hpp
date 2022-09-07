@@ -1,7 +1,8 @@
 #pragma once
 
 /* memory_stream
- * v1.0
+ * v1.2
+ * add seek_next_alignment
  *
  * stream api for memory, similar to file_stream
  */
@@ -38,6 +39,8 @@ size_t current_block_offset(const memory_stream *stream);
 
 int seek(memory_stream *stream, long offset, int whence = SEEK_SET);
 int seek_block(memory_stream *stream, long nth_block, int whence = SEEK_SET);
+// seeks to next alignment if unaligned or does nothing if aligned
+int seek_next_alignment(memory_stream *stream, size_t alignment);
 size_t tell(memory_stream *stream);
 bool getpos(memory_stream *stream, fpos_t *pos);
 void rewind(memory_stream *stream);

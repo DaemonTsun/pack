@@ -11,7 +11,8 @@ int main(int argc, char **argv)
 
     package_writer writer;
     
-    add_entry(&writer, 8u);
+    add_entry(&writer, 8u, "number 8");
+    add_entry(&writer, "hello world", "the hello");
 
     write(&writer, rtpath.c_str());
 

@@ -1,5 +1,6 @@
 
-// v1.1
+// v1.2
+// add seek_next_alignment
 // fix string writing
 
 #include <assert.h>
@@ -165,6 +166,17 @@ int seek_block(memory_stream *stream, long nth_block, int whence)
     // SEEK_CUR
     size_t cur = (stream->position / stream->block_size) * stream->block_size;
     return seek(stream, cur + nth_block * stream->block_size, SEEK_SET);
+}
+
+int seek_next_alignment(memory_stream *stream, size_t alignment)
+{
+    assert(stream != nullptr);
+    assert(alignment > 0);
+
+    size_t npos = stream->position;
+    npos = (npos + alignment - 1) / alignment * alignment;
+
+    return seek(stream, npos);
 }
 
 size_t tell(memory_stream *stream)
