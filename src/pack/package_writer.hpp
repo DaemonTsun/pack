@@ -3,26 +3,52 @@
 
 #include <string>
 #include <vector>
+
+#include "package.hpp"
 #include "file_stream.hpp"
 #include "memory_stream.hpp"
 
-struct package_write_entry
+enum class package_writer_entry_type
+{
+    Memory,
+    File // loaded lazily when writing
+};
+
+struct package_writer_file
+{
+    const char *path;
+    u64 size;
+};
+
+struct package_writer_entry
 {
     // name, usually path
     std::string name;
-    memory_stream content;
+    package_writer_entry_type type;
+
+    union
+    {
+        memory_stream memory;
+        package_writer_file file;
+    } content;
 };
 
 struct package_writer
 {
-    std::vector<package_write_entry> entries;
+    std::vector<package_writer_entry> entries;
 };
 
-void add_file(package_writer *writer, file_stream *stream, const char *name = "");
-void add_file(package_writer *writer, const char *path);
-void add_entry(package_writer *writer, package_write_entry *entry);
+void add_file(package_writer *writer, file_stream *stream, const char *name = "", bool lazy = true);
+void add_file(package_writer *writer, const char *path, bool lazy = true);
+void add_entry(package_writer *writer, package_writer_entry *entry);
 void add_entry(package_writer *writer, const char *str, const char *name = "");
 void add_entry(package_writer *writer, void *data, size_t size, const char *name = "");
+
+template<typename T>
+void add_entry(package_writer *writer, T *data, const char *name = "")
+{
+    add_entry(writer, reinterpret_cast<void*>(data), sizeof(T), name);
+}
 
 template<typename T>
 void add_entry(package_writer *writer, T &&data, const char *name = "")
@@ -32,3 +58,4 @@ void add_entry(package_writer *writer, T &&data, const char *name = "")
 
 void write(package_writer *writer, file_stream *out);
 void write(package_writer *writer, const char *out_path);
+void free(package_writer *writer);

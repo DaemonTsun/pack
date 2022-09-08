@@ -106,20 +106,20 @@ size_t write_blocks(memory_stream *stream, const void *in, size_t nth_block, siz
 
 // get does not perform memcpy
 template<typename T>
-void get(memory_stream *stream, T **out)
+void get(const memory_stream *stream, T **out)
 {
     *out = reinterpret_cast<T*>(current(stream));
 }
 
 template<typename T>
-void get_aligned(memory_stream *stream, T **out)
+void get_aligned(const memory_stream *stream, T **out)
 {
     size_t pos = (stream->position / sizeof(T)) * sizeof(T)
     *out = reinterpret_cast<T*>(stream->data + pos);
 }
 
 template<typename T>
-void get_at(memory_stream *stream, T **out, size_t offset)
+void get_at(const memory_stream *stream, T **out, size_t offset)
 {
     *out = reinterpret_cast<T*>(stream->data + offset);
 }

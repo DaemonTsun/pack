@@ -24,11 +24,19 @@
  *   4 bytes padding
  *   8 bytes number of toc entries
  * ]
- * [toc entries]
+ * [toc entries
+ *   [entry 1
+ *     8 bytes content offset
+ *     8 bytes content size
+ *     8 bytes name offset
+ *   ]
+ *   [entry 2 ...]
+ * ]
  */
 
 #define PACK_VERSION  0x00000001
 #define PACK_NO_FLAGS 0
+#define PACK_TOC_NO_FLAGS 0
 
 struct package_header
 {
@@ -52,4 +60,5 @@ struct package_toc_entry
     u64 offset;
     u64 size;
     u64 name_offset;
+    u64 flags;
 };
