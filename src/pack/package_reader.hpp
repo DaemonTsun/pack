@@ -1,9 +1,9 @@
 
 #pragma once
 
-#include "package.hpp"
-#include "file_stream.hpp"
-#include "memory_stream.hpp"
+#include "pack/package.hpp"
+#include "pack/shl/file_stream.hpp"
+#include "pack/shl/memory_stream.hpp"
 
 struct package_reader_entry
 {
@@ -29,6 +29,6 @@ void read(package_reader *reader, const char *path);
 // gets the nth package entry
 void get_package_entry(const package_reader *reader, u64 n, package_reader_entry *entry);
 // gets the first entry with the given name, returns false if not found, true if found
-bool get_package_entry(const package_reader *reader, const char *name, package_reader_entry *entry);
+bool get_package_entry_by_name(const package_reader *reader, const char *name, package_reader_entry *entry);
 
 void free(package_reader *reader);

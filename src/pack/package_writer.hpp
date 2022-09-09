@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "package.hpp"
-#include "file_stream.hpp"
-#include "memory_stream.hpp"
+#include "pack/package.hpp"
+#include "pack/shl/file_stream.hpp"
+#include "pack/shl/memory_stream.hpp"
 
 enum class package_writer_entry_type
 {
@@ -24,6 +24,7 @@ struct package_writer_entry
 {
     // name, usually path
     std::string name;
+    u64 flags;
     package_writer_entry_type type;
 
     union

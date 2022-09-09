@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdexcept>
 
-#include "pack/string.hpp"
+#include "pack/shl/string.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 
@@ -13,6 +13,7 @@ void add_file(package_writer *writer, const char *path, bool lazy)
     assert(path != nullptr);
 
     package_writer_entry &entry = writer->entries.emplace_back();
+    entry.flags = PACK_TOC_FLAG_FILE;
     entry.name = path;
 
     file_stream stream;
@@ -58,6 +59,7 @@ void add_entry(package_writer *writer, const char *str, const char *name)
 
     package_writer_entry &entry = writer->entries.emplace_back();
     entry.name = name;
+    entry.flags = PACK_TOC_NO_FLAGS;
     entry.type = package_writer_entry_type::Memory;
 
     open(&entry.content.memory, strlen(str));
@@ -72,6 +74,7 @@ void add_entry(package_writer *writer, void *data, size_t size, const char *name
 
     package_writer_entry &entry = writer->entries.emplace_back();
     entry.name = name;
+    entry.flags = PACK_TOC_NO_FLAGS;
     entry.type = package_writer_entry_type::Memory;
 
     open(&entry.content.memory, size, false);
@@ -113,6 +116,7 @@ void write(package_writer *writer, file_stream *out)
     assert(out != nullptr);
 
     size_t entry_count = writer->entries.size();
+
     package_header header;
     strncpy(header.magic, PACK_HEADER_MAGIC, 4);
     header.version = PACK_VERSION;
@@ -166,6 +170,7 @@ void write(package_writer *writer, file_stream *out)
 
     package_toc toc;
     strncpy(toc.magic, PACK_TOC_MAGIC, 4);
+    toc._padding = 0;
     toc.entry_count = entry_count;
 
     write(out, &toc);
@@ -175,11 +180,12 @@ void write(package_writer *writer, file_stream *out)
     for (u64 i = 0; i < entry_count; ++i)
     {
         auto &entry = writer->entries[i];
+
         package_toc_entry toc_entry;
         toc_entry.offset = content_offsets[i];
         toc_entry.size = entry_size(&entry);
         toc_entry.name_offset = name_offsets[i];
-        toc_entry.flags = PACK_TOC_NO_FLAGS;
+        toc_entry.flags = entry.flags;
 
         write(out, &toc_entry);
     }

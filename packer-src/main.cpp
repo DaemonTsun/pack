@@ -1,8 +1,7 @@
 
 #include <iostream>
 #include "pack/package_writer.hpp"
-#include "pack/filesystem.hpp"
-
+#include "pack/shl/filesystem.hpp"
 
 int main(int argc, char **argv)
 {
@@ -15,6 +14,7 @@ int main(int argc, char **argv)
     add_entry(&writer, "hello world", "the hello");
 
     write(&writer, rtpath.c_str());
+    free(&writer);
 
     return 0;
 }

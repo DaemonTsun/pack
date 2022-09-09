@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "number_types.hpp"
+#include "pack/shl/number_types.hpp"
 
 #define PACK_HEADER_MAGIC "pack"
 #define PACK_TOC_MAGIC "toc0"
@@ -36,7 +36,6 @@
 
 #define PACK_VERSION  0x00000001
 #define PACK_NO_FLAGS 0
-#define PACK_TOC_NO_FLAGS 0
 
 struct package_header
 {
@@ -54,6 +53,9 @@ struct package_toc
     u32 _padding;
     u64 entry_count;
 };
+
+#define PACK_TOC_NO_FLAGS  0x00
+#define PACK_TOC_FLAG_FILE 0x01
 
 struct package_toc_entry
 {

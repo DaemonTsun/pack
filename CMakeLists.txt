@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 
+
 project(pack)
 
 set(PACK_SRC_DIR "src")
 set(PACKER_SRC_DIR "packer-src")
+set(TEST_SRC_DIR "tests")
 
 # sources
 file(GLOB_RECURSE PACK_HEADERS "${PACK_SRC_DIR}/*.h" "${PACK_SRC_DIR}/*.hpp")
@@ -28,3 +30,9 @@ target_sources(packer PRIVATE ${PACKER_HEADERS} ${PACKER_SOURCES})
 target_link_libraries(packer pack)
 target_include_directories(packer PRIVATE "${PACK_SRC_DIR}" "${PACKER_SRC_DIR}")
 
+find_package(t1 QUIET)
+if(NOT DEFINED t1_DIR OR t1_DIR)
+    add_test_directory(${TEST_SRC_DIR})
+    register_tests()
+    link_tests(pack)
+endif()

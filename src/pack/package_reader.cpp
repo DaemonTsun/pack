@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "string.hpp"
-#include "package_reader.hpp"
+#include "pack/shl/string.hpp"
+#include "pack/package_reader.hpp"
 
 void read_package(package_reader *reader)
 {
@@ -40,6 +40,7 @@ void read(package_reader *reader, file_stream *stream)
     calculate_file_size(stream);
     open(&reader->memory, stream->size, false);
     read_entire_file(stream, reader->memory.data);
+    read_package(reader);
 }
 
 void read(package_reader *reader, const char *path)
@@ -81,7 +82,7 @@ void get_package_entry(const package_reader *reader, u64 n, package_reader_entry
     get_package_entry_from_toc(reader, toc_entry, entry);
 }
 
-bool get_package_entry(const package_reader *reader, const char *name, package_reader_entry *entry)
+bool get_package_entry_by_name(const package_reader *reader, const char *name, package_reader_entry *entry)
 {
     assert(reader != nullptr);
     assert(entry != nullptr);
