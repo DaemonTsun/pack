@@ -39,7 +39,7 @@ struct package_writer
     std::vector<package_writer_entry> entries;
 };
 
-void add_file(package_writer *writer, file_stream *stream, const char *name = "", bool lazy = true);
+void add_file(package_writer *writer, const char *path, const char *name, bool lazy = true);
 void add_file(package_writer *writer, const char *path, bool lazy = true);
 void add_entry(package_writer *writer, package_writer_entry *entry);
 void add_entry(package_writer *writer, const char *str, const char *name = "");

@@ -7,14 +7,14 @@
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 
-void add_file(package_writer *writer, const char *path, bool lazy)
+void add_file(package_writer *writer, const char *path, const char *name, bool lazy)
 {
     assert(writer != nullptr);
     assert(path != nullptr);
 
     package_writer_entry &entry = writer->entries.emplace_back();
     entry.flags = PACK_TOC_FLAG_FILE;
-    entry.name = path;
+    entry.name = name;
 
     file_stream stream;
     init(&stream);
@@ -40,6 +40,11 @@ void add_file(package_writer *writer, const char *path, bool lazy)
     }
 
     close(&stream);
+}
+
+void add_file(package_writer *writer, const char *path, bool lazy)
+{
+    add_file(writer, path, path, lazy);
 }
 
 void add_entry(package_writer *writer, package_writer_entry *entry)
