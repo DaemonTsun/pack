@@ -25,6 +25,7 @@ struct arguments
     bool verbose; // -v
 
     bool extract; // -x
+    bool list; // -l
     const char *out_path; // -o
 
     fs::path base_path; // -b, defaults to current working directory
@@ -35,6 +36,7 @@ const arguments default_arguments
 {
     .verbose = false,
     .extract = false,
+    .list = false,
     .out_path = nullptr,
 };
 
@@ -164,9 +166,76 @@ void extract(arguments *args)
     */
 }
 
+#define max(a, b) (a >= b ? a : b)
+
+void print_package_reader_entry_flags(const package_reader_entry *entry)
+{
+    size_t count = 0;
+
+    if ((entry->flags & PACK_TOC_FLAG_FILE) == PACK_TOC_FLAG_FILE)
+    {
+        putchar('F');
+        count++;
+    }
+
+    printf("%.*s", max(8 - count, 0), "        ");
+}
+
+template<typename T>
+constexpr inline T dec_digits(T x)
+{
+    T i = 0;
+
+    while (x > 0)
+    {
+        x = x / 10;
+        ++i;
+    }
+
+    return i;
+}
+
+void list(arguments *args)
+{
+    // TODO: output file / stdout
+    for (const char *input : args->input_files)
+    {
+        printf("contents of package %s:\n", input);
+
+        package_reader reader;
+        read(&reader, input);
+
+        printf("%u entries found\n", reader.toc->entry_count);
+        package_reader_entry entry;
+
+        size_t digits = dec_digits(reader.toc->entry_count);
+        char digit_fmt[16] = {0};
+        sprintf(digit_fmt, "  %%0%ud ", digits);
+
+        if (args->verbose)
+            printf("\n  %.*s flags    offset   size     name\n", digits, "n               ");
+        else
+            printf("\n  %.*s flags    name\n", digits, "n               ");
+
+        for (int i = 0; i < reader.toc->entry_count; ++i)
+        {
+            get_package_entry(&reader, i, &entry);
+            printf(digit_fmt, i);
+            print_package_reader_entry_flags(&entry);
+            
+            if (args->verbose)
+                printf(" %08x %08x", reinterpret_cast<char*>(entry.content) - reader.memory.data, entry.size);
+
+            printf(" %s\n", entry.name);
+        }
+
+        free(&reader);
+    }
+}
+
 void show_help_and_exit()
 {
-    puts(PACKER_NAME R"( [-h] [-v] [-x] -o <path> <files...>
+    puts(PACKER_NAME R"( [-h] [-v] [-x | -l] [-b <path>] -o <path> <files...>
   v)" PACKER_VERSION R"(
   by )" PACKER_AUTHOR R"(
 
@@ -176,6 +245,7 @@ ARGUMENTS:
   -h            show this help and exit
   -v            show verbose output
   -x            extract instead of pack
+  -l            list the contents of the input files
   -o <path>     the output file / path
   -b <path>     specifies the base path, all file paths will be relative to it.
                 only used in packing, not extracting.
@@ -219,6 +289,12 @@ void parse_arguments(int argc, char **argv, arguments *args)
             continue;
         }
 
+        if (strcmp(arg, "-l") == 0)
+        {
+            args->list = true;
+            continue;
+        }
+
         if (strcmp(arg, "-o") == 0)
         {
             args->out_path = next_arg(argc, argv, &i);
@@ -251,7 +327,12 @@ try
     if (!is_or_make_directory(&args.base_path))
         throw std::runtime_error(str("not a directory: '", args.base_path, "'"));
 
-    if (args.extract)
+    if (args.list && args.extract)
+        throw std::runtime_error("cannot extract and list");
+
+    if (args.list)
+        list(&args);
+    else if (args.extract)
         extract(&args);
     else
         pack(&args);
