@@ -11,6 +11,7 @@
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
 #include "pack/shl/filesystem.hpp"
+#include "pack/shl/file_stream.hpp"
 #include "pack/shl/string.hpp"
 
 #include "config.hpp"
@@ -86,7 +87,7 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, fs::path *b
         }
 }
 
-char y_n_prompt(const char *message)
+char choice_prompt(const char *message, const char *choices)
 {
     char c;
     unsigned int ret;
@@ -94,15 +95,19 @@ char y_n_prompt(const char *message)
     do
     {
         printf("\n%s", message);
+prompt_no_message:
 
         ret = getchar();
+
+        if (is_space(ret))
+            goto prompt_no_message;
 
         if (ret == EOF)
             return 'x';
 
         c = to_lower(static_cast<char>(ret));
     }
-    while (c != 'y' && c != 'n');
+    while (strchr(choices, c) == nullptr);
 
     return c;
 }
@@ -117,10 +122,10 @@ void pack(arguments *args)
     if (fs::exists(outp))
     {
         if (!fs::is_regular_file(outp))
-            throw std::runtime_error(str("no output file exists and is not a file: ", outp));
+            throw std::runtime_error(str("output file exists but is not a file: ", outp));
 
         auto msg = str("output file ", outp, " already exists. overwrite? [y / n]: ");
-        char choice = y_n_prompt(msg.c_str());
+        char choice = choice_prompt(msg.c_str(), "yn");
 
         if (choice != 'y')
         {
@@ -139,7 +144,7 @@ void pack(arguments *args)
 
     if (args->verbose)
     {
-        puts("files:\n");
+        puts("files:");
 
         for (const auto &path : paths)
             printf("  %s -> %s\n", path.input_path.c_str(), path.target_path.c_str());
@@ -154,31 +159,122 @@ void pack(arguments *args)
     free(&writer);
 }
 
+void extract_archive(arguments *args, package_reader *reader)
+{
+    file_stream stream;
+    init(&stream);
+    package_reader_entry entry;
+    fs::path outp = args->out_path;
+
+    bool always_overwrite = false;
+    bool never_overwrite = false;
+
+    if (!is_or_make_directory(&outp))
+        throw std::runtime_error(str("output directory not a directory: ", outp));
+
+    for (int i = 0; i < reader->toc->entry_count; ++i)
+    {
+        get_package_entry(reader, i, &entry);
+
+        if ((entry.flags & PACK_TOC_FLAG_FILE) != PACK_TOC_FLAG_FILE)
+        {
+            if (args->verbose)
+                printf("  skipping non-file entry %d: %s\n", i, entry.name);
+
+            continue;
+        }
+
+        fs::path epath = outp / entry.name;
+        fs::path parent = epath.parent_path();
+
+        if (!fs::exists(parent))
+        {
+            if (!fs::create_directories(parent))
+                throw std::runtime_error(str("  could not create parent directory ", parent, " for file entry ", epath));
+        }
+
+        if (fs::exists(epath))
+        {
+            if (never_overwrite)
+            {
+                printf("skipping existing file %s\n", epath.c_str());
+                continue;
+            }
+
+            if (!fs::is_regular_file(epath))
+                throw std::runtime_error(str("entry output path exists but is not a file: ", epath));
+
+            if (!always_overwrite)
+            {
+                auto msg = str("output file ", epath, " already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ");
+                char choice = choice_prompt(msg.c_str(), "ynae");
+
+                if (choice == 'n')
+                {
+                    puts("skipping");
+                    continue;
+                }
+                else if (choice == 'a')
+                {
+                    puts("always overwriting");
+                    always_overwrite = true;
+                }
+                else if (choice == 'e')
+                {
+                    puts("never overwriting");
+                    printf("skipping existing file %s\n", epath.c_str());
+                    never_overwrite = true;
+                    continue;
+                }
+                else if (choice == 'x')
+                {
+                    puts("aborting");
+                    exit(0);
+                }
+            }
+        }
+
+        if (args->verbose)
+            printf("  %08x bytes %s\n", entry.size, epath.c_str());
+
+        open(&stream, epath.c_str(), MODE_WRITE, true, false);
+        write(&stream, entry.content, entry.size);
+    }
+
+    close(&stream);
+}
+
 void extract(arguments *args)
 {
-    /*
+    package_reader reader;
+
     for (const char *path : args->input_files)
+    {
         if (!fs::is_regular_file(path))
             throw std::runtime_error(str("not a file: '", path, "'"));
 
-    for (const char *path : args->input_files)
-        extract_archive(args, path);
-    */
+        if (args->verbose)
+            printf("extracting archive %s\n", path);
+
+        read(&reader, path);
+        extract_archive(args, &reader);
+        free(&reader);
+    }
 }
 
 #define max(a, b) (a >= b ? a : b)
 
-void print_package_reader_entry_flags(const package_reader_entry *entry)
+void print_package_reader_entry_flags(file_stream *out, const package_reader_entry *entry)
 {
     size_t count = 0;
 
     if ((entry->flags & PACK_TOC_FLAG_FILE) == PACK_TOC_FLAG_FILE)
     {
-        putchar('F');
+        putc('F', out->handle);
         count++;
     }
 
-    printf("%.*s", max(8 - count, 0), "        ");
+    format(out, "%.*s", max(8 - count, 0), "        ");
 }
 
 template<typename T>
@@ -197,15 +293,26 @@ constexpr inline T dec_digits(T x)
 
 void list(arguments *args)
 {
-    // TODO: output file / stdout
+    file_stream out;
+
+    if (args->out_path != nullptr)
+    {
+        if (!open(&out, args->out_path, MODE_WRITE, false, false))
+            throw std::runtime_error(str("could not open ", args->out_path, " for writing"));
+    }
+    else
+    {
+        out.handle = stdout;
+    }
+
     for (const char *input : args->input_files)
     {
-        printf("contents of package %s:\n", input);
+        format(&out, "contents of package %s:\n", input);
 
         package_reader reader;
         read(&reader, input);
 
-        printf("%u entries found\n", reader.toc->entry_count);
+        format(&out, "%u entries found\n", reader.toc->entry_count);
         package_reader_entry entry;
 
         size_t digits = dec_digits(reader.toc->entry_count);
@@ -213,20 +320,20 @@ void list(arguments *args)
         sprintf(digit_fmt, "  %%0%ud ", digits);
 
         if (args->verbose)
-            printf("\n  %.*s flags    offset   size     name\n", digits, "n               ");
+            format(&out, "\n  %.*s flags    offset   size     name\n", digits, "n               ");
         else
-            printf("\n  %.*s flags    name\n", digits, "n               ");
+            format(&out, "\n  %.*s flags    name\n", digits, "n               ");
 
         for (int i = 0; i < reader.toc->entry_count; ++i)
         {
             get_package_entry(&reader, i, &entry);
-            printf(digit_fmt, i);
-            print_package_reader_entry_flags(&entry);
+            format(&out, digit_fmt, i);
+            print_package_reader_entry_flags(&out, &entry);
             
             if (args->verbose)
-                printf(" %08x %08x", reinterpret_cast<char*>(entry.content) - reader.memory.data, entry.size);
+                format(&out, " %08x %08x", reinterpret_cast<char*>(entry.content) - reader.memory.data, entry.size);
 
-            printf(" %s\n", entry.name);
+            format(&out, " %s\n", entry.name);
         }
 
         free(&reader);
@@ -303,7 +410,7 @@ void parse_arguments(int argc, char **argv, arguments *args)
 
         if (strcmp(arg, "-b") == 0)
         {
-            args->base_path = actually_absolute(next_arg(argc, argv, &i));
+            args->base_path = fs::absolute(next_arg(argc, argv, &i));
             continue;
         }
 
@@ -327,6 +434,8 @@ try
     if (!is_or_make_directory(&args.base_path))
         throw std::runtime_error(str("not a directory: '", args.base_path, "'"));
 
+    args.base_path = actually_absolute(args.base_path);
+
     if (args.list && args.extract)
         throw std::runtime_error("cannot extract and list");
 
@@ -337,6 +446,7 @@ try
     else
         pack(&args);
 
+    puts("done");
     return 0;
 }
 catch (std::exception &e)
