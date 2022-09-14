@@ -16,6 +16,8 @@
 
 #include "config.hpp"
 
+#define PACK_INDEX_EXTENSION ".pack_index"
+
 namespace fs
 {
 using namespace std::filesystem;
@@ -27,6 +29,7 @@ struct arguments
 
     bool extract; // -x
     bool list; // -l
+    bool treat_index_as_file; // -i
     const char *out_path; // -o
 
     fs::path base_path; // -b, defaults to current working directory
@@ -38,6 +41,7 @@ const arguments default_arguments
     .verbose = false,
     .extract = false,
     .list = false,
+    .treat_index_as_file = false,
     .out_path = nullptr,
 };
 
@@ -70,21 +74,74 @@ struct packer_path
     fs::path target_path; // the name it has inside the package
 };
 
-void add_path_files(fs::path *path, std::vector<packer_path> *paths, fs::path *base)
+void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *args)
 {
+    if (args->verbose)
+        printf(" adding path '%s'\n", path->c_str());
+
     if (!fs::exists(*path))
         throw std::runtime_error(str("can't pack path because path does not exist: ", *path));
 
     if (fs::is_regular_file(*path))
     {
-        paths->push_back(packer_path{*path, path->lexically_relative(*base)});
+        if (args->treat_index_as_file)
+        {
+            paths->push_back(packer_path{*path, path->lexically_relative(args->base_path)});
+            return;
+        }
+
+        // check for index file, then get files from that
+        std::string ext = path->extension();
+
+        if (ext != PACK_INDEX_EXTENSION)
+        {
+            paths->push_back(packer_path{*path, path->lexically_relative(args->base_path)});
+            return;
+        }
+
+        if (args->verbose)
+            printf(" adding entries of index file %s\n", path->c_str());
+
+        std::vector<fs::path> index_paths;
+
+        file_stream findex;
+        open(&findex, path->c_str());
+
+        char* line = nullptr;
+        size_t len = 0;
+
+        while ((getline(&line, &len, findex.handle)) != -1)
+        {
+            if (len == 0)
+                continue;
+
+            auto strline = std::string(line, strlen(line) - 1);
+
+            if (is_blank(strline))
+                continue;
+
+            if (begins_with(strline, str("##")))
+                continue;
+
+            index_paths.push_back(actually_absolute(strline));
+        }
+
+        close(&findex);
+
+        if (line != nullptr)
+            free(line);
+
+        for (auto &ipath : index_paths)
+            add_path_files(&ipath, paths, args);
     }
     else if (fs::is_directory(*path))
         for (const auto &entry : fs::directory_iterator{*path})
         {
             auto epath = actually_absolute(entry.path());
-            add_path_files(&epath, paths, base);
+            add_path_files(&epath, paths, args);
         }
+    else
+        throw std::runtime_error(str("cannot add unknown path ", *path));
 }
 
 char choice_prompt(const char *message, const char *choices)
@@ -139,12 +196,12 @@ void pack(arguments *args)
     for (const char *path : args->input_files)
     {
         auto epath = actually_absolute(path);
-        add_path_files(&epath, &paths, &args->base_path);
+        add_path_files(&epath, &paths, args);
     }
 
     if (args->verbose)
     {
-        puts("files:");
+        puts("\nfiles:");
 
         for (const auto &path : paths)
             printf("  %s -> %s\n", path.input_path.c_str(), path.target_path.c_str());
@@ -337,12 +394,13 @@ void list(arguments *args)
         }
 
         free(&reader);
+        puts("");
     }
 }
 
 void show_help_and_exit()
 {
-    puts(PACKER_NAME R"( [-h] [-v] [-x | -l] [-b <path>] -o <path> <files...>
+    puts(PACKER_NAME R"( [-h] [-v] [-x | -l] [-i] [-b <path>] -o <path> <files...>
   v)" PACKER_VERSION R"(
   by )" PACKER_AUTHOR R"(
 
@@ -353,6 +411,7 @@ ARGUMENTS:
   -v            show verbose output
   -x            extract instead of pack
   -l            list the contents of the input files
+  -i            treat index files as normal files
   -o <path>     the output file / path
   -b <path>     specifies the base path, all file paths will be relative to it.
                 only used in packing, not extracting.
@@ -402,6 +461,12 @@ void parse_arguments(int argc, char **argv, arguments *args)
             continue;
         }
 
+        if (strcmp(arg, "-i") == 0)
+        {
+            args->treat_index_as_file = true;
+            continue;
+        }
+
         if (strcmp(arg, "-o") == 0)
         {
             args->out_path = next_arg(argc, argv, &i);
@@ -440,7 +505,10 @@ try
         throw std::runtime_error("cannot extract and list");
 
     if (args.list)
+    {
         list(&args);
+        return 0;
+    }
     else if (args.extract)
         extract(&args);
     else
