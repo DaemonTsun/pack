@@ -31,6 +31,10 @@ target_sources(packer PRIVATE ${PACKER_HEADERS} ${PACKER_SOURCES})
 target_link_libraries(packer pack)
 target_include_directories(packer PRIVATE "${PACK_SRC_DIR}" "${PACKER_SRC_DIR}")
 
+# demo
+add_subdirectory(demo)
+
+# tests
 find_package(t1 QUIET)
 if(NOT DEFINED t1_DIR OR t1_DIR)
     add_test_directory(${TEST_SRC_DIR})
