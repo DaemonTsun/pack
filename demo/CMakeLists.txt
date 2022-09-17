@@ -6,14 +6,15 @@ set(RES ${DEMODIR}/res)
 set(SRC ${DEMODIR}/src)
 file(GLOB_RECURSE DEMO_HEADERS "${SRC}/*.h" "${SRC}/*.hpp")
 file(GLOB_RECURSE DEMO_SOURCES "${SRC}/*.c" "${SRC}/*.cpp")
-add_executable(pack-demo)
 
-find_package(pack REQUIRED PATHS ../cmake/)
+find_package(pack REQUIRED NO_DEFAULT_PATH PATHS ../cmake/)
 
 file(GLOB_RECURSE PACKAGE_FILES "${RES}/*")
-add_package(testpack ${DEMOBIN}/testpack.pack BASE ${RES} FILES ${PACKAGE_FILES})
+set(TEST_PACK "${DEMOBIN}/testpack.pack")
+add_package("${TEST_PACK}" BASE ${DEMODIR} FILES ${PACKAGE_FILES})
 
-target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES})
+add_executable(pack-demo)
+target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}")
 target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}")
 
 # link

@@ -27,6 +27,7 @@ struct arguments
 {
     bool verbose; // -v
 
+    bool force; // -f
     bool extract; // -x
     bool list; // -l
     bool treat_index_as_file; // -i
@@ -39,6 +40,7 @@ struct arguments
 const arguments default_arguments
 {
     .verbose = false,
+    .force = false,
     .extract = false,
     .list = false,
     .treat_index_as_file = false,
@@ -144,8 +146,11 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
         throw std::runtime_error(str("cannot add unknown path ", *path));
 }
 
-char choice_prompt(const char *message, const char *choices)
+char choice_prompt(const char *message, const char *choices, arguments *args)
 {
+    if (args->force)
+        return *choices;
+
     char c;
     unsigned int ret;
 
@@ -182,7 +187,7 @@ void pack(arguments *args)
             throw std::runtime_error(str("output file exists but is not a file: ", outp));
 
         auto msg = str("output file ", outp, " already exists. overwrite? [y / n]: ");
-        char choice = choice_prompt(msg.c_str(), "yn");
+        char choice = choice_prompt(msg.c_str(), "yn", args);
 
         if (choice != 'y')
         {
@@ -264,7 +269,7 @@ void extract_archive(arguments *args, package_reader *reader)
             if (!always_overwrite)
             {
                 auto msg = str("output file ", epath, " already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ");
-                char choice = choice_prompt(msg.c_str(), "ynae");
+                char choice = choice_prompt(msg.c_str(), "ynae", args);
 
                 if (choice == 'n')
                 {
@@ -404,19 +409,20 @@ void show_help_and_exit()
   v)" PACKER_VERSION R"(
   by )" PACKER_AUTHOR R"(
 
-packs or extracts archives
+Packs, extracts or lists contents of archives.
 
 ARGUMENTS:
-  -h            show this help and exit
-  -v            show verbose output
-  -x            extract instead of pack
-  -l            list the contents of the input files
-  -i            treat index files as normal files
-  -o <path>     the output file / path
-  -b <path>     specifies the base path, all file paths will be relative to it.
-                only used in packing, not extracting.
+  -h            Show this help and exit.
+  -v            Show verbose output.
+  -f            Force overwrite any files without prompting.
+  -x            Extract instead of pack.
+  -l            List the contents of the input files.
+  -i            Treat index files as normal files.
+  -o <path>     The output file / path.
+  -b <path>     Specifies the base path, all file paths will be relative to it.
+                Only used in packing, not extracting.
 
-  <files>       the input files
+  <files>       The input files.
 )");
 
     exit(0);
@@ -446,6 +452,12 @@ void parse_arguments(int argc, char **argv, arguments *args)
         if (strcmp(arg, "-v") == 0)
         {
             args->verbose = true;
+            continue;
+        }
+
+        if (strcmp(arg, "-f") == 0)
+        {
+            args->force = true;
             continue;
         }
 
@@ -520,4 +532,5 @@ try
 catch (std::exception &e)
 {
     fprintf(stderr, "error: %s\n", e.what());
+    return 1;
 }
