@@ -10,8 +10,7 @@ macro(add_package OUT_PATH)
     endif()
 
     set(_OPTIONS)
-    # TODO: add single val arg for inc file
-    set(_SINGLE_VAL_ARGS BASE)
+    set(_SINGLE_VAL_ARGS BASE GEN_HEADER)
     set(_MULTI_VAL_ARGS FILES)
 
     cmake_parse_arguments(ADD_PACKAGE "${_OPTIONS}" "${_SINGLE_VAL_ARGS}" "${_MULTI_VAL_ARGS}" ${ARGN})
@@ -44,6 +43,13 @@ macro(add_package OUT_PATH)
         OUTPUT "${OUT_PATH}"
         COMMAND "${PACKER_EXEC}" "-f" "-b" "${ADD_PACKAGE_BASE}" "-o" "${OUT_PATH}" "${_INDEX_FILE}"
         MAIN_DEPENDENCY "${_INDEX_FILE}"
-        DEPENDS "${ADD_PACKAGE_FILES}" "${_INDEX_FILE}"
-    )
+        DEPENDS "${ADD_PACKAGE_FILES}" "${_INDEX_FILE}")
+
+    if (DEFINED ADD_PACKAGE_GEN_HEADER)
+        add_custom_command(
+            OUTPUT "${ADD_PACKAGE_GEN_HEADER}"
+            COMMAND "${PACKER_EXEC}" "-f" "-g" "-o" "${ADD_PACKAGE_GEN_HEADER}" "${OUT_PATH}"
+            MAIN_DEPENDENCY "${OUT_PATH}"
+            DEPENDS "${OUT_PATH}")
+    endif()
 endmacro()

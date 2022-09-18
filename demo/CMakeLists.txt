@@ -11,7 +11,10 @@ find_package(pack REQUIRED NO_DEFAULT_PATH PATHS ../cmake/)
 
 file(GLOB_RECURSE PACKAGE_FILES "${RES}/*")
 set(TEST_PACK "${DEMOBIN}/testpack.pack")
-add_package("${TEST_PACK}" BASE ${DEMODIR} FILES ${PACKAGE_FILES})
+add_package("${TEST_PACK}"
+            BASE ${DEMODIR} 
+            GEN_HEADER "${SRC}/gen/testpack.h"
+            FILES ${PACKAGE_FILES})
 
 add_executable(pack-demo)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}")
