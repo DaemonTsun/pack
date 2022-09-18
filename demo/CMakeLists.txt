@@ -15,6 +15,11 @@ add_package("${TEST_PACK}"
             BASE ${DEMODIR} 
             GEN_HEADER "${SRC}/gen/testpack.h"
             FILES ${PACKAGE_FILES})
+        
+generate_header("${SRC}/gen/testpack.h"
+            BASE ${DEMOBIN} 
+            PACKAGE "${TEST_PACK}"
+            FILES ${PACKAGE_FILES})
 
 add_executable(pack-demo)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}")
