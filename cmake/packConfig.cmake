@@ -3,10 +3,10 @@
 # defines functions for integrating pack into cmake projects
 
 # used internally
-macro(sanitize_path NAME PATH)
-    string(REGEX REPLACE "[/.]" "_" ${NAME} ${PATH})
-    string(REGEX REPLACE "__+" "_" ${NAME} ${${NAME}})
-    string(REGEX REPLACE "^_+" "" ${NAME} ${${NAME}})
+macro(sanitize_path NAME_VAR PATH)
+    string(REGEX REPLACE "[/.]" "_" ${NAME_VAR} ${PATH})
+    string(REGEX REPLACE "__+" "_" ${NAME_VAR} ${${NAME_VAR}})
+    string(REGEX REPLACE "^_+" "" ${NAME_VAR} ${${NAME_VAR}})
 endmacro()
 
 # used internally
@@ -16,6 +16,10 @@ macro(generate_header OUT_PATH)
     set(_MULTI_VAL_ARGS FILES)
 
     cmake_parse_arguments(GENERATE_HEADER "${_OPTIONS}" "${_SINGLE_VAL_ARGS}" "${_MULTI_VAL_ARGS}" ${ARGN})
+
+    if (NOT DEFINED GENERATE_HEADER_FILES)
+        message(FATAL_ERROR "generate_header: missing FILES")
+    endif()
 
     if (NOT DEFINED GENERATE_HEADER_PACKAGE)
         message(FATAL_ERROR "generate_header: missing PACKAGE path, required to generate header file (package does not need to exist)")
@@ -40,7 +44,7 @@ macro(generate_header OUT_PATH)
     set(_HEADER_DEFS "")
 
     set(_I 0)
-    foreach(_FILE ${ADD_PACKAGE_FILES})
+    foreach(_FILE ${GENERATE_HEADER_FILES})
         cmake_path(RELATIVE_PATH _FILE BASE_DIRECTORY "${GENERATE_HEADER_BASE}" OUTPUT_VARIABLE REL_FILE)
         sanitize_path(SAFE_FILE "${REL_FILE}")
         set(_HEADER "${_HEADER}    \"${REL_FILE}\",\n")
@@ -50,11 +54,55 @@ macro(generate_header OUT_PATH)
 
     set(_HEADER "${_HEADER}};\n\n${_HEADER_DEFS}\n")
 
-    # TODO: write to file
-    # TODO: add add_files targets instead, and call generate_header with target paths
-    message("${_HEADER}")
+    file(WRITE "${OUT_PATH}" "${_HEADER}")
 
     unset(_HEADER)
+endmacro()
+
+# TODO: docs
+macro(add_files OUT_FILES_VAR OUT_PATH)
+    set(_OPTIONS)
+    set(_SINGLE_VAL_ARGS BASE PACKAGE GEN_HEADER)
+    set(_MULTI_VAL_ARGS FILES)
+
+    cmake_parse_arguments(ADD_FILES "${_OPTIONS}" "${_SINGLE_VAL_ARGS}" "${_MULTI_VAL_ARGS}" ${ARGN})
+
+    if (NOT DEFINED ADD_FILES_FILES)
+        message(FATAL_ERROR "add_files: missing FILES")
+    endif()
+
+    if (NOT DEFINED ADD_FILES_BASE)
+        message(FATAL_ERROR "add_files: missing BASE path")
+    endif()
+
+    foreach(_FILE ${ADD_FILES_FILES})
+        cmake_path(RELATIVE_PATH _FILE BASE_DIRECTORY "${ADD_FILES_BASE}" OUTPUT_VARIABLE _REL_FILE)
+        set(_OUT_FILE "${OUT_PATH}/${_REL_FILE}")
+
+        cmake_path(GET _OUT_FILE PARENT_PATH _PARENT)
+        file(MAKE_DIRECTORY "${_PARENT}")
+
+        message(DEBUG "adding target to copy ${_FILE} to ${_OUT_FILE}")
+
+        add_custom_command(
+            OUTPUT "${_OUT_FILE}"
+            COMMAND ${CMAKE_COMMAND} -E copy "${_FILE}" "${_OUT_FILE}"
+            DEPENDS "${_FILE}")
+
+        list(APPEND ${OUT_FILES_VAR} "${_OUT_FILE}")
+    endforeach()
+
+    if (DEFINED ADD_FILES_GEN_HEADER)
+        if (NOT DEFINED ADD_FILES_PACKAGE)
+            message(FATAL_ERROR "add_files: missing PACKAGE path, required to generate header file (package does not need to exist)")
+        endif()
+
+        generate_header(
+            "${ADD_FILES_GEN_HEADER}"
+            BASE "${OUT_PATH}"
+            PACKAGE "${ADD_FILES_PACKAGE}"
+            FILES ${${OUT_FILES_VAR}})
+    endif()
 endmacro()
 
 # TODO: docs

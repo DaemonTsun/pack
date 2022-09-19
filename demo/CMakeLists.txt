@@ -16,13 +16,19 @@ add_package("${TEST_PACK}"
             GEN_HEADER "${SRC}/gen/testpack.h"
             FILES ${PACKAGE_FILES})
         
-generate_header("${SRC}/gen/testpack.h"
-            BASE ${DEMOBIN} 
-            PACKAGE "${TEST_PACK}"
-            FILES ${PACKAGE_FILES})
+add_files(OUTPUT_FILES "${DEMOBIN}"
+          BASE "${DEMODIR}"
+          GEN_HEADER "${SRC}/gen/testpack.h"
+          PACKAGE "${TEST_PACK}"
+          FILES ${PACKAGE_FILES})
+
+# generate_header("${SRC}/gen/testpack.h"
+#            BASE ${DEMOBIN} 
+#           PACKAGE "${TEST_PACK}"
+#            FILES ${PACKAGE_FILES})
 
 add_executable(pack-demo)
-target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}")
+target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}" ${OUTPUT_FILES})
 target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}")
 
 # link
