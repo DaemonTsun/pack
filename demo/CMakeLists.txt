@@ -20,11 +20,13 @@ pack(OUTPUT_FILES
      PACKAGE "${TEST_PACK}"
      FILES ${PACKAGE_FILES})
 
+# if only package is required:
 # add_package(OUTPUT_FILES "${TEST_PACK}"
 #             BASE ${DEMODIR} 
 #             GEN_HEADER "${TEST_PACK_H}"
 #             FILES ${PACKAGE_FILES})
 
+# if files copies are required:
 # add_files(OUTPUT_FILES "${DEMOBIN}"
 #           BASE "${DEMODIR}"
 #           GEN_HEADER "${TEST_PACK_H}"
@@ -32,13 +34,16 @@ pack(OUTPUT_FILES
 #           FILES ${PACKAGE_FILES})
 
 # generate_header("${TEST_PACK_H}"
-#            BASE ${DEMOBIN} 
-#           PACKAGE "${TEST_PACK}"
-#            FILES ${PACKAGE_FILES})
+#                 BASE ${DEMOBIN} 
+#                 PACKAGE "${TEST_PACK}"
+#                 FILES ${PACKAGE_FILES})
+
+find_package(SDL2 REQUIRED)
 
 add_executable(pack-demo)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} ${OUTPUT_FILES} "${TEST_PACK_H}")
-target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}")
+target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}" ${SDL2_INCLUDE_DIRS})
+add_custom_target(run COMMAND "${DEMOBIN}/pack-demo")
 
 # link
-target_link_libraries(pack-demo ${PROJECT_NAME})
+target_link_libraries(pack-demo ${PROJECT_NAME} ${SDL2_LIBRARIES})
