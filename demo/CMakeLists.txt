@@ -11,24 +11,33 @@ find_package(pack REQUIRED NO_DEFAULT_PATH PATHS ../cmake/)
 
 file(GLOB_RECURSE PACKAGE_FILES "${RES}/*")
 set(TEST_PACK "${DEMOBIN}/testpack.pack")
-add_package("${TEST_PACK}"
-            BASE ${DEMODIR} 
-            GEN_HEADER "${SRC}/gen/testpack.h"
-            FILES ${PACKAGE_FILES})
-        
-add_files(OUTPUT_FILES "${DEMOBIN}"
-          BASE "${DEMODIR}"
-          GEN_HEADER "${SRC}/gen/testpack.h"
-          PACKAGE "${TEST_PACK}"
-          FILES ${PACKAGE_FILES})
+set(TEST_PACK_H "${SRC}/gen/testpack.h")
 
-# generate_header("${SRC}/gen/testpack.h"
+pack(OUTPUT_FILES
+     BASE "${DEMODIR}"
+     COPY_FILE_DESTINATION "${DEMOBIN}"
+     GEN_HEADER "${TEST_PACK_H}"
+     PACKAGE "${TEST_PACK}"
+     FILES ${PACKAGE_FILES})
+
+# add_package(OUTPUT_FILES "${TEST_PACK}"
+#             BASE ${DEMODIR} 
+#             GEN_HEADER "${TEST_PACK_H}"
+#             FILES ${PACKAGE_FILES})
+
+# add_files(OUTPUT_FILES "${DEMOBIN}"
+#           BASE "${DEMODIR}"
+#           GEN_HEADER "${TEST_PACK_H}"
+#           PACKAGE "${TEST_PACK}"
+#           FILES ${PACKAGE_FILES})
+
+# generate_header("${TEST_PACK_H}"
 #            BASE ${DEMOBIN} 
 #           PACKAGE "${TEST_PACK}"
 #            FILES ${PACKAGE_FILES})
 
 add_executable(pack-demo)
-target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} "${TEST_PACK}" ${OUTPUT_FILES})
+target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} ${OUTPUT_FILES} "${TEST_PACK_H}")
 target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}")
 
 # link

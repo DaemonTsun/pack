@@ -106,7 +106,7 @@ macro(add_files OUT_FILES_VAR OUT_PATH)
 endmacro()
 
 # TODO: docs
-macro(add_package OUT_PATH)
+macro(add_package OUT_FILES_VAR OUT_PATH)
     find_program(PACKER_EXEC packer)
 
     if (NOT PACKER_EXEC)
@@ -149,6 +149,8 @@ macro(add_package OUT_PATH)
         MAIN_DEPENDENCY "${_INDEX_FILE}"
         DEPENDS "${ADD_PACKAGE_FILES}" "${_INDEX_FILE}")
 
+    list(APPEND ${OUT_FILES_VAR} "${OUT_PATH}")
+
     if (DEFINED ADD_PACKAGE_GEN_HEADER)
         add_custom_command(
             OUTPUT "${ADD_PACKAGE_GEN_HEADER}"
@@ -159,4 +161,47 @@ macro(add_package OUT_PATH)
 
     unset(_INDEX)
     unset(_INDEX_FILE)
+endmacro()
+
+# TODO: docs
+macro(pack OUT_FILES_VAR)
+    set(_OPTIONS COPY_FILES)
+    set(_SINGLE_VAL_ARGS COPY_FILE_DESTINATION BASE PACKAGE GEN_HEADER)
+    set(_MULTI_VAL_ARGS FILES)
+
+    cmake_parse_arguments(_PACK "${_OPTIONS}" "${_SINGLE_VAL_ARGS}" "${_MULTI_VAL_ARGS}" ${ARGN})
+
+    if (NOT DEFINED _PACK_FILES)
+        message(FATAL_ERROR "pack: missing FILES")
+    endif()
+
+    if (NOT DEFINED _PACK_BASE)
+        message(FATAL_ERROR "pack: missing BASE path")
+    endif()
+
+    if (NOT DEFINED _PACK_PACKAGE)
+        message(FATAL_ERROR "pack: missing PACKAGE path")
+    endif()
+
+    if (_PACK_COPY_FILES OR "${CMAKE_BUILD_TYPE}" STREQUAL Debug)
+        message(STATUS "pack: copying files")
+
+        if (NOT DEFINED _PACK_COPY_FILE_DESTINATION)
+            message(FATAL_ERROR "pack: missing COPY_FILE_DESTINATION path for copying files")
+        endif()
+
+        if (DEFINED _PACK_GEN_HEADER)
+            add_files(OUT_FILES_VAR "${_PACK_COPY_FILE_DESTINATION}" BASE "${_PACK_BASE}" PACKAGE "${_PACK_PACKAGE}" GEN_HEADER "${_PACK_GEN_HEADER}" FILES ${_PACK_FILES})
+        else()
+            add_files(OUT_FILES_VAR "${_PACK_COPY_FILE_DESTINATION}" BASE "${_PACK_BASE}" "${_PACK_GEN_HEADER}" FILES ${_PACK_FILES})
+        endif()
+    else()
+        message(STATUS "pack: packing files")
+
+        if (DEFINED _PACK_GEN_HEADER)
+            add_package(OUT_FILES_VAR "${_PACK_PACKAGE}" BASE "${_PACK_BASE}" GEN_HEADER "${_PACK_GEN_HEADER}" FILES ${_PACK_FILES})
+        else()
+            add_package(OUT_FILES_VAR "${_PACK_PACKAGE}" BASE "${_PACK_BASE}" FILES ${_PACK_FILES})
+        endif()
+    endif()
 endmacro()
