@@ -10,7 +10,7 @@ struct package_reader_entry
     const char *name;
     u64 flags;
 
-    void *content;
+    char *content;
     u64 size;
 };
 

@@ -1,11 +1,14 @@
 
 #include <chrono>
 #include <SDL.h>
+#include <SDL_image.h>
 
 #include "sdlexception.hpp"
 
-#include "pack/package_reader.hpp"
+#include "pack/package_loader.hpp"
 #include "gen/testpack.h"
+
+package_loader loader;
 
 float FPS = 60;
 
@@ -18,30 +21,78 @@ struct _window_resize
 } window_resize;
 
 SDL_Window *window = nullptr;
+SDL_Texture *texture = nullptr;
+SDL_Renderer *renderer = nullptr;
+int window_width = 640;
+int window_height = 480;
+float tex_x = 0;
+float tex_y = 0;
+float tex_vel_x = 3;
+float tex_vel_y = 1;
 
 void update(float);
 void render(float);
+
+void setup_texture()
+{
+    if (texture != nullptr)
+    {
+        SDL_DestroyTexture(texture);
+        texture = nullptr;
+    }
+
+    memory_stream imgmem;
+    init(&imgmem);
+
+    if (!load_entry(&loader, testpack_pack__res_image_png, &imgmem))
+        throw std::runtime_error("could not load texture");
+    
+    SDL_RWops *rw = SDL_RWFromMem(imgmem.data, imgmem.size);
+    SDL_Surface* surface = IMG_Load_RW(rw, 0);
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    if (texture == nullptr)
+        throw sdlexception();
+
+    SDL_FreeSurface(surface);
+}
 
 void setup()
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
         throw sdlexception();
 
-    window = SDL_CreateWindow("title",
+    window = SDL_CreateWindow("pack loading demo",
                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              640, 480,
+                              window_width, window_height,
                               SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 
     if (window == nullptr)
         throw sdlexception();
+
+    renderer = SDL_CreateRenderer(window,
+                                  -1, // renderer driver, -1 = first one that works
+                                  SDL_RENDERER_ACCELERATED);
+
+    if (renderer == nullptr)
+        throw sdlexception();
+
+    SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+
+    IMG_Init(IMG_INIT_PNG);
+
+    load_package(&loader, testpack_pack);
+
+    setup_texture();
 }
 
 void handle_window_event(SDL_Event *e)
 {
     if (e->window.event == SDL_WINDOWEVENT_RESIZED)
     {
-        int w, h;
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GetWindowSize(window, &window_width, &window_height);
+        // etc
     }
 }
 
@@ -49,7 +100,6 @@ void handle_current_events(SDL_Event *e, bool *quit)
 {
     while (SDL_PollEvent(e) != 0 && !*quit)
     {
-        printf("%d\n", e->type);
         switch (e->type)
         {
         case SDL_QUIT:
@@ -156,10 +206,23 @@ void cleanup()
 
 void update(float dt)
 {
+    tex_x = (int)(tex_x + tex_vel_x) % window_width;
+    tex_y = (int)(tex_y + tex_vel_y) % window_height;
 }
 
 void render(float dt)
 {
+    SDL_Rect t1{tex_x               , tex_y                , window_width, window_height};
+    SDL_Rect t2{tex_x - window_width, tex_y                , window_width, window_height};
+    SDL_Rect t3{tex_x               , tex_y - window_height, window_width, window_height};
+    SDL_Rect t4{tex_x - window_width, tex_y - window_height, window_width, window_height};
+
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, texture, NULL, &t1);
+    SDL_RenderCopy(renderer, texture, NULL, &t2);
+    SDL_RenderCopy(renderer, texture, NULL, &t3);
+    SDL_RenderCopy(renderer, texture, NULL, &t4);
+    SDL_RenderPresent(renderer);
 }
 
 int main(int argc, const char *argv[])

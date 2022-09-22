@@ -2,6 +2,8 @@
 # pack-demo
 set(DEMODIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(DEMOBIN ${CMAKE_CURRENT_BINARY_DIR})
+# i cannot put into words how god awful cmake is
+list(APPEND CMAKE_MODULE_PATH "${DEMODIR}/cmake")
 set(RES ${DEMODIR}/res)
 set(SRC ${DEMODIR}/src)
 file(GLOB_RECURSE DEMO_HEADERS "${SRC}/*.h" "${SRC}/*.hpp")
@@ -39,6 +41,7 @@ pack(OUTPUT_FILES
 #                 FILES ${PACKAGE_FILES})
 
 find_package(SDL2 REQUIRED)
+find_package(SDL2_image REQUIRED)
 
 add_executable(pack-demo)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} ${OUTPUT_FILES} "${TEST_PACK_H}")
@@ -46,4 +49,4 @@ target_include_directories(pack-demo PUBLIC "${PACK_SRC_DIR}" ${SDL2_INCLUDE_DIR
 add_custom_target(run COMMAND "${DEMOBIN}/pack-demo")
 
 # link
-target_link_libraries(pack-demo ${PROJECT_NAME} ${SDL2_LIBRARIES})
+target_link_libraries(pack-demo ${PROJECT_NAME} ${SDL2_LIBRARIES} ${SDL2_IMAGE_LIBRARIES})
