@@ -1,9 +1,9 @@
 
 #pragma once
 
+#include "shl/file_stream.hpp"
+#include "shl/memory_stream.hpp"
 #include "pack/package.hpp"
-#include "pack/shl/file_stream.hpp"
-#include "pack/shl/memory_stream.hpp"
 
 struct package_reader_entry
 {

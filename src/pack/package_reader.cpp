@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "pack/shl/string.hpp"
+#include "shl/string.hpp"
 #include "pack/package_reader.hpp"
 
 void read_package(package_reader *reader)

@@ -7,12 +7,12 @@
 #include <stdexcept>
 #include <vector>
 
+#include "shl/filesystem.hpp"
+#include "shl/file_stream.hpp"
+#include "shl/string.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
-#include "pack/shl/filesystem.hpp"
-#include "pack/shl/file_stream.hpp"
-#include "pack/shl/string.hpp"
 
 #include "config.hpp"
 

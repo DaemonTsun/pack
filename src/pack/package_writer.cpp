@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdexcept>
 
-#include "pack/shl/string.hpp"
+#include "shl/string.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 

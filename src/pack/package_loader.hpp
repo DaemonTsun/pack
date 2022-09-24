@@ -1,8 +1,8 @@
 
 #pragma once
 
+#include "shl/memory_stream.hpp"
 #include "pack/package_reader.hpp"
-#include "pack/shl/memory_stream.hpp"
 
 enum class package_loader_mode
 {

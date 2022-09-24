@@ -1,0 +1,3 @@
+[submodule "shl"]
+	path = shl
+	url = https://github.com/daemontsun/shl.git

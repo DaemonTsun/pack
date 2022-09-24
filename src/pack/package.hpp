@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "pack/shl/number_types.hpp"
+#include "shl/number_types.hpp"
 
 #define PACK_HEADER_MAGIC "pack"
 #define PACK_TOC_MAGIC "toc0"

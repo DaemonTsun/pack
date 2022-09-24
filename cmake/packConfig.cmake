@@ -183,7 +183,7 @@ macro(pack OUT_FILES_VAR)
         message(FATAL_ERROR "pack: missing PACKAGE path")
     endif()
 
-    if (_PACK_COPY_FILES OR "${CMAKE_BUILD_TYPE}" STREQUAL Debug)
+    if (_PACK_COPY_FILES OR NOT CMAKE_BUILD_TYPE STREQUAL Release)
         message(STATUS "pack: copying files")
 
         if (NOT DEFINED _PACK_COPY_FILE_DESTINATION)

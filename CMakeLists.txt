@@ -14,6 +14,8 @@ set(PACKER_SRC_DIR "${CMAKE_SOURCE_DIR}/packer-src")
 set(TEST_SRC_DIR "${CMAKE_SOURCE_DIR}/tests")
 set(TEST_BIN_DIR "${CMAKE_BINARY_DIR}/tests")
 
+add_subdirectory(shl)
+
 # sources
 file(GLOB_RECURSE PACK_HEADERS "${PACK_SRC_DIR}/*.h" "${PACK_SRC_DIR}/*.hpp")
 file(GLOB_RECURSE PACK_SOURCES "${PACK_SRC_DIR}/*.c" "${PACK_SRC_DIR}/*.cpp")
@@ -26,17 +28,17 @@ set(CMAKE_CXX_STANDARD 17)
 
 # target lib
 add_library(pack SHARED)
-target_sources(pack PUBLIC ${PACK_HEADERS} ${PACK_SOURCES})
+target_sources(pack PUBLIC ${PACK_HEADERS} ${PACK_SOURCES} ${SHL_SOURCES})
 set_property(TARGET pack PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # includes
-target_include_directories(pack PUBLIC "${PACK_SRC_DIR}")
+target_include_directories(pack PUBLIC "${PACK_SRC_DIR}" "${SHL_SRC_DIR}")
 
 # packer
 add_executable(packer)
-target_sources(packer PRIVATE ${PACKER_HEADERS} ${PACKER_SOURCES})
+target_sources(packer PRIVATE ${PACKER_HEADERS} ${PACKER_SOURCES} ${SHL_SOURCES})
 target_link_libraries(packer pack)
-target_include_directories(packer PRIVATE "${PACK_SRC_DIR}" "${PACKER_SRC_DIR}")
+target_include_directories(packer PRIVATE "${PACK_SRC_DIR}" "${PACKER_SRC_DIR}" "${SHL_SRC_DIR}")
 
 # demo
 find_program(PACKER_INSTALLED packer)

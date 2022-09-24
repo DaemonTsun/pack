@@ -1,6 +1,6 @@
 
 #include <assert.h>
-#include "pack/shl/file_stream.hpp"
+#include "shl/file_stream.hpp"
 #include "pack/package_loader.hpp"
 
 void init(package_loader *loader)

@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
+#include "shl/file_stream.hpp"
+#include "shl/memory_stream.hpp"
 #include "pack/package.hpp"
-#include "pack/shl/file_stream.hpp"
-#include "pack/shl/memory_stream.hpp"
 
 enum class package_writer_entry_type
 {

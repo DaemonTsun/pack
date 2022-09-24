@@ -3,7 +3,7 @@
 #include <string.h>
 #include <t1/t1.hpp>
 
-#include "pack/shl/filesystem.hpp"
+#include "shl/filesystem.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
 
