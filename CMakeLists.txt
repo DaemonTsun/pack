@@ -58,6 +58,10 @@ if(NOT DEFINED t1_DIR OR t1_DIR)
     configure_file(${TEST_SRC_DIR}/test_file.txt
                    ${TEST_BIN_DIR}/test_file.txt
                    COPYONLY)
+
+    configure_file(${TEST_SRC_DIR}/testpack.pack
+                   ${TEST_BIN_DIR}/testpack.pack
+                   COPYONLY)
 endif()
 
 # install

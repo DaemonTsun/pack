@@ -202,6 +202,8 @@ void event_loop()
 void cleanup()
 {
     SDL_Quit();
+
+    free(&loader);
 }
 
 void update(float dt)

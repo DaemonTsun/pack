@@ -6,6 +6,9 @@
 #include "shl/filesystem.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
+#include "pack/package_loader.hpp"
+
+#include "testpack.h"
 
 char out_path[PATH_MAX];
 char out_file[PATH_MAX];
@@ -125,6 +128,58 @@ define_test(package_writer_writes_files)
     assert_equal(strncmp(reinterpret_cast<char*>(entry.content), "This is a test file.\n", 21u), 0);
 
     free(&reader);
+}
+
+define_test(package_loader_loads_package_file)
+{
+    package_loader loader;
+
+    load_package_file(&loader, testpack_pack);
+
+    assert_equal(testpack_pack_file_count, 1);
+
+    memory_stream stream;
+    init(&stream);
+
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+
+    assert_equal(stream.size, 21u);
+
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+
+    assert_equal(stream.size, 21u);
+
+    free(&loader);
+}
+
+define_test(package_loader_loads_files)
+{
+    package_loader loader;
+
+    load_files(&loader, testpack_pack_files, testpack_pack_file_count);
+
+    assert_equal(testpack_pack_file_count, 1);
+
+    memory_stream stream;
+    init(&stream);
+
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+
+    assert_equal(stream.size, 21u);
+
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+
+    assert_equal(stream.size, 21u);
+
+    free(&loader);
 }
 
 define_test_main(setup(), cleanup());

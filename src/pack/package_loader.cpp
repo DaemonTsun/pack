@@ -10,6 +10,7 @@ void init(package_loader *loader)
     loader->mode = package_loader_mode::Files;
     loader->data.files.ptr = nullptr;
     loader->data.files.count = 0;
+    loader->data.files.last_stream = nullptr;
 }
 
 void load_package_file(package_loader *loader, const char *filename)
@@ -55,12 +56,21 @@ bool load_entry(package_loader *loader, u64 entry, memory_stream *stream)
         if (!open(&fstream, loader->data.files.ptr[entry], MODE_READ, false, true))
             return false;
 
+        if (loader->data.files.last_stream != stream
+         && loader->data.files.last_stream != nullptr)
+        {
+            close(loader->data.files.last_stream);
+            loader->data.files.last_stream = nullptr;
+        }
+
         // in file streams, we close the current stream and
         // copy the file into the new stream
         if (!open(stream, fstream.size, true, true))
             return false;
 
         read_entire_file(&fstream, stream->data);
+
+        loader->data.files.last_stream = stream;
     }
 
     return true;
@@ -72,8 +82,14 @@ void free(package_loader *loader)
 
     if (loader->mode == package_loader_mode::Package)
         free(&loader->data.reader);
+    else
+    {
+        if (loader->data.files.last_stream != nullptr)
+            close(loader->data.files.last_stream);
+    }
 
     loader->mode = package_loader_mode::Files;
     loader->data.files.ptr = nullptr;
     loader->data.files.count = 0;
+    loader->data.files.last_stream = nullptr;
 }

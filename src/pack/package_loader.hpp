@@ -22,6 +22,7 @@ struct package_loader
         {
             const char **ptr;
             u64 count;
+            memory_stream *last_stream;
         } files;
     } data;
 };
