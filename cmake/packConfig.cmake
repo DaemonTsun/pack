@@ -59,7 +59,17 @@ macro(generate_header OUT_PATH)
     unset(_HEADER)
 endmacro()
 
-# TODO: docs
+# add_files(<OUT_VAR> <PATH>
+#           BASE <base path>
+#           [PACKAGE <package name>
+#           GEN_HEADER <header file>]
+#           FILES <files...>)
+#
+# Adds dependency targets for copying FILES to PATH, relative to BASE and
+# stores the list of target paths in OUT_VAR. 
+#
+# If PACKAGE and GEN_HEADER are set, generates a header file for use with
+# pack/package_loader.hpp at GEN_HEADER.
 macro(add_files OUT_FILES_VAR OUT_PATH)
     set(_OPTIONS)
     set(_SINGLE_VAL_ARGS BASE PACKAGE GEN_HEADER)
@@ -105,7 +115,19 @@ macro(add_files OUT_FILES_VAR OUT_PATH)
     endif()
 endmacro()
 
-# TODO: docs
+# add_package(<OUT_VAR> <package path>
+#             BASE <base path>
+#             [GEN_HEADER <header path>]
+#             FILES <files...>)
+#
+# Adds a dependency target for generating a package at <package path>
+# which includes FILES relative to BASE and stores the target path
+# to the package in OUT_VAR (<package path> and OUT_VAR will contain the
+# same path). 
+#
+# If GEN_HEADER is set, generates a header file for use with
+# pack/package_loader.hpp at GEN_HEADER.
+#             
 macro(add_package OUT_FILES_VAR OUT_PATH)
     find_program(PACKER_EXEC packer)
 
@@ -163,7 +185,22 @@ macro(add_package OUT_FILES_VAR OUT_PATH)
     unset(_INDEX_FILE)
 endmacro()
 
-# TODO: docs
+# pack(<OUT_VAR>
+#      [COPY_FILES]
+#      [COPY_FILES_DESTINATION]
+#      BASE <base path>
+#      [PACKAGE <package>
+#      GEN_HEADER <header path>]
+#      FILES <files...>)
+#
+# Does the same thing as add_package and add_files, depending on the arguments or
+# CMake configuration.
+# If COPY_FILES is set or CMake configuration is NOT Release, executes add_files with
+# OUT_VAR, COPY_FILES_DESTINATION, BASE, PACKAGE, GEN_HEADER and FILES.
+#
+# otherwise, executes add_package with
+# OUT_VAR, PACKAGE, BASE, GEN_HEADER, FILES.
+#
 macro(pack OUT_FILES_VAR)
     set(_OPTIONS COPY_FILES)
     set(_SINGLE_VAL_ARGS COPY_FILE_DESTINATION BASE PACKAGE GEN_HEADER)
