@@ -1,74 +1,70 @@
 cmake_minimum_required(VERSION 3.20)
+find_package(better REQUIRED NO_DEFAULT_PATH PATHS ext/better-cmake/cmake)
 
-if(CMAKE_BUILD_TYPE)
-    if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-        # the fact that this isnt default behavior is baffling
-        set(CMAKE_MESSAGE_LOG_LEVEL DEBUG)
-    endif()
+project(pack VERSION 0.8)
+get_version_target(pack_TARGET ${PROJECT_NAME})
+
+if(TARGET ${pack_TARGET})
+    return()
 endif()
 
-project(pack)
-
-set(PACK_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
-set(PACKER_SRC_DIR "${CMAKE_SOURCE_DIR}/packer-src")
-set(TEST_SRC_DIR "${CMAKE_SOURCE_DIR}/tests")
-set(TEST_BIN_DIR "${CMAKE_BINARY_DIR}/tests")
-
-add_subdirectory(shl)
+set(pack_SOURCES_DIR "${CMAKE_SOURCE_DIR}/src")
+set(packer_SOURCES_DIR "${CMAKE_SOURCE_DIR}/packer-src")
 
 # sources
-file(GLOB_RECURSE PACK_HEADERS "${PACK_SRC_DIR}/*.h" "${PACK_SRC_DIR}/*.hpp")
-file(GLOB_RECURSE PACK_SOURCES "${PACK_SRC_DIR}/*.c" "${PACK_SRC_DIR}/*.cpp")
-file(GLOB_RECURSE PACKER_HEADERS "${PACKER_SRC_DIR}/*.h" "${PACKER_SRC_DIR}/*.hpp")
-file(GLOB_RECURSE PACKER_SOURCES "${PACKER_SRC_DIR}/*.c" "${PACKER_SRC_DIR}/*.cpp")
+find_sources(pack_SOURCES "${pack_SOURCES_DIR}")
+find_headers(pack_HEADERS "${pack_SOURCES_DIR}")
+find_sources(packer_SOURCES "${packer_SOURCES_DIR}")
+find_headers(packer_HEADERS "${packer_SOURCES_DIR}")
 set(SOURCE_CMAKE_CONFIG_FILE "${CMAKE_SOURCE_DIR}/cmake/packConfig.cmake")
 
 # settings
 set(CMAKE_CXX_STANDARD 17)
 
+add_subdirectory(ext/shl)
+add_subdirectory(ext/fs)
+
 # target lib
-add_library(pack SHARED)
-target_sources(pack PUBLIC ${PACK_HEADERS} ${PACK_SOURCES} ${SHL_SOURCES})
-set_property(TARGET pack PROPERTY POSITION_INDEPENDENT_CODE ON)
+add_library(${pack_TARGET} SHARED)
+target_sources(${pack_TARGET} PUBLIC ${pack_HEADERS} ${pack_SOURCES})
+set_property(TARGET ${pack_TARGET} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # includes
-target_include_directories(pack PUBLIC "${PACK_SRC_DIR}" "${SHL_SRC_DIR}")
+target_include_directories(${pack_TARGET} PUBLIC "${pack_SOURCES_DIR}" "${shl_SOURCES_DIR}" "${fs_SOURCES_DIR}")
+target_link_libraries(${pack_TARGET} ${shl_TARGET} ${fs_TARGET})
 
 # packer
 add_executable(packer)
-target_sources(packer PRIVATE ${PACKER_HEADERS} ${PACKER_SOURCES} ${SHL_SOURCES})
-target_link_libraries(packer pack)
-target_include_directories(packer PRIVATE "${PACK_SRC_DIR}" "${PACKER_SRC_DIR}" "${SHL_SRC_DIR}")
+target_sources(packer PRIVATE ${packer_HEADERS} ${packer_SOURCES})
+target_link_libraries(packer ${pack_TARGET})
+target_include_directories(packer PRIVATE "${pack_SOURCES_DIR}" "${packer_SOURCES_DIR}" "${shl_SOURCES_DIR}" "${fs_SOURCES_DIR}")
 
 # demo
-find_program(PACKER_INSTALLED packer)
+find_program(packer_INSTALLED packer)
 
-if (PACKER_INSTALLED)
-    message(DEBUG "found packer: ${PACKER_INSTALLED}")
+if (packer_INSTALLED)
+    message(DEBUG "found packer: ${packer_INSTALLED}")
     add_subdirectory(demo)
 endif()
 
 # tests
+set(TEST_SOURCES_DIR "${CMAKE_SOURCE_DIR}/tests")
+set(TEST_BIN_DIR "${CMAKE_BINARY_DIR}/tests")
+
 find_package(t1 QUIET)
 if(NOT DEFINED t1_DIR OR t1_DIR)
-    add_test_directory(${TEST_SRC_DIR})
+    add_test_directory(${TEST_SOURCES_DIR} INCLUDE_DIRS "${pack_SOURCES_DIR}" LIBRARIES ${pack_TARGET})
     register_tests()
-    link_tests(pack)
 
-    configure_file(${TEST_SRC_DIR}/test_file.txt
+    configure_file(${TEST_SOURCES_DIR}/test_file.txt
                    ${TEST_BIN_DIR}/test_file.txt
                    COPYONLY)
 
-    configure_file(${TEST_SRC_DIR}/testpack.pack
+    configure_file(${TEST_SOURCES_DIR}/testpack.pack
                    ${TEST_BIN_DIR}/testpack.pack
                    COPYONLY)
 endif()
 
 # install
-install(FILES ${PACK_HEADERS} DESTINATION "include/${PROJECT_NAME}")
-install(FILES "${SOURCE_CMAKE_CONFIG_FILE}" DESTINATION "share/${PROJECT_NAME}/cmake")
-install(TARGETS "${PROJECT_NAME}"
-        RUNTIME DESTINATION "bin"
-        LIBRARY DESTINATION "lib"
-        ARCHIVE DESTINATION "lib/${PROJECT_NAME}")
-install(TARGETS packer DESTINATION bin)
+install_library(TARGET ${pack_TARGET} HEADERS ${pack_HEADERS})
+install_executable(TARGET packer)

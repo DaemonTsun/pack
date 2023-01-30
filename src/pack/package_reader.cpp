@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "shl/string.hpp"
+#include "shl/error.hpp"
 #include "pack/package_reader.hpp"
 
 void read_package(package_reader *reader)
@@ -11,12 +11,12 @@ void read_package(package_reader *reader)
     assert(is_open(&reader->memory));
 
     if (reader->memory.size < sizeof(package_header))
-        throw std::runtime_error("read_package: content smaller than expected");
+        throw_error("read_package: package content (%x) smaller than header (%x)", reader->memory.size, sizeof(package_header));
 
     get_at(&reader->memory, &reader->header, 0);
 
     if (strncmp(reader->header->magic, PACK_HEADER_MAGIC, strlen(PACK_HEADER_MAGIC)) != 0)
-        throw std::runtime_error("read_package: invalid package magic number");
+        throw_error("read_package: invalid package magic number");
 
     // TODO: version
     // TODO: flags
@@ -24,12 +24,12 @@ void read_package(package_reader *reader)
     u64 toc_pos = reader->header->toc_offset;
 
     if (toc_pos >= reader->memory.size - sizeof(package_toc))
-        throw std::runtime_error(str("read_package: toc position ", std::hex, toc_pos, " out of range"));
+        throw_error("read_package: toc position (%x + %x) outside bounds of package (%x)", toc_pos, sizeof(package_toc), reader->memory.size);
 
     get_at(&reader->memory, &reader->toc, toc_pos);
 
     if (strncmp(reader->toc->magic, PACK_TOC_MAGIC, strlen(PACK_TOC_MAGIC)) != 0)
-        throw std::runtime_error("read_package: invalid toc magic number");
+        throw_error("read_package: invalid toc magic number");
 }
 
 void read(package_reader *reader, file_stream *stream)
@@ -51,7 +51,7 @@ void read(package_reader *reader, const char *path)
     file_stream stream;
 
     if (!open(&stream, path))
-        throw std::runtime_error(str("package_reader read: could not open file for reading '", path, "'"));
+        throw_error("read: could not open file for reading '%s'", path);
     
     read(reader, &stream);
     close(&stream);

@@ -1,15 +1,17 @@
 
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
 
-#include <filesystem>
-#include <stdexcept>
+#include <algorithm> // fuc
+#include <filesystem> // guess i failed fs
 #include <vector>
 
-#include "shl/filesystem.hpp"
+#include "fs/path.hpp"
 #include "shl/file_stream.hpp"
 #include "shl/string.hpp"
+#include "shl/string_manip.hpp"
+#include "shl/error.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
@@ -17,14 +19,6 @@
 #include "config.hpp"
 
 #define PACK_INDEX_EXTENSION "_index"
-
-#define throw_error(...)\
-    throw std::runtime_error(str(__FILE__, ":", __LINE__, ' ', __VA_ARGS__));
-
-namespace fs
-{
-using namespace std::filesystem;
-}
 
 struct arguments
 {
@@ -54,25 +48,20 @@ const arguments default_arguments
 
 bool is_or_make_directory(fs::path *path)
 {
-    if (!fs::exists(*path))
+    if (!fs::exists(path))
     {
-        if (!fs::create_directories(*path))
-            throw_error("could not create directory: ", *path);
+        if (!fs::create_directories(path))
+            throw_error("could not create directory: '%s'", path->c_str());
 
         return true;
     }
     else
     {
-        if (!fs::is_directory(*path))
+        if (!fs::is_directory(path))
             return false;
 
         return true;
     }
-}
-
-fs::path actually_absolute(fs::path path)
-{
-    return fs::absolute(fs::canonical(path));
 }
 
 struct packer_path
@@ -86,23 +75,27 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
     if (args->verbose)
         printf(" adding path '%s'\n", path->c_str());
 
-    if (!fs::exists(*path))
-        throw_error("can't pack path because path does not exist: ", *path);
+    if (!fs::exists(path))
+        throw_error("can't pack path because path does not exist: %s", path->c_str());
 
-    if (fs::is_regular_file(*path))
+    if (fs::is_file(path))
     {
         if (args->treat_index_as_file)
         {
-            paths->push_back(packer_path{*path, path->lexically_relative(args->base_path)});
+            fs::path rel;
+            fs::relative_path(&args->base_path, path, &rel);
+            paths->push_back(packer_path{*path, rel});
             return;
         }
 
         // check for index file, then get files from that
-        std::string ext = path->extension();
+        const char *ext = fs::extension(path);
 
-        if (!ends_with(ext, str(PACK_INDEX_EXTENSION)))
+        if (!ends_with(ext, PACK_INDEX_EXTENSION))
         {
-            paths->push_back(packer_path{*path, path->lexically_relative(args->base_path)});
+            fs::path rel;
+            fs::relative_path(&args->base_path, path, &rel);
+            paths->push_back(packer_path{*path, rel});
             return;
         }
 
@@ -122,15 +115,16 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
             if (len == 0)
                 continue;
 
-            auto strline = std::string(line, strlen(line) - 1);
+            std::string strline = std::string(line, string_length(line) - 1);
 
-            if (is_blank(strline))
+            if (is_blank(strline.c_str()))
                 continue;
 
-            if (begins_with(strline, str("##")))
+            if (begins_with(strline.c_str(), "##"))
                 continue;
 
-            index_paths.push_back(actually_absolute(strline));
+            fs::path *pth = &index_paths.emplace_back(strline.c_str());
+            fs::absolute_canonical_path(pth, pth);
         }
 
         close(&findex);
@@ -141,10 +135,11 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
         for (auto &ipath : index_paths)
             add_path_files(&ipath, paths, args);
     }
-    else if (fs::is_directory(*path))
-        for (const auto &entry : fs::directory_iterator{*path})
+    else if (fs::is_directory(path))
+        for (const auto &entry : std::filesystem::directory_iterator(path->c_str()))
         {
-            auto epath = actually_absolute(entry.path());
+            fs::path epath(entry.path().c_str());
+            fs::absolute_canonical_path(&epath, &epath);
             add_path_files(&epath, paths, args);
         }
     else
@@ -166,7 +161,7 @@ prompt_no_message:
 
         ret = getchar();
 
-        if (is_space(ret))
+        if (is_space(static_cast<char>(ret)))
             goto prompt_no_message;
 
         if (ret == EOF)
@@ -184,14 +179,15 @@ void pack(arguments *args)
     if (args->out_path == nullptr)
         throw_error("no output file specified");
 
-    fs::path outp = fs::absolute(args->out_path);
+    fs::path outp(args->out_path);
+    fs::absolute_path(&outp, &outp);
 
-    if (fs::exists(outp))
+    if (fs::exists(&outp))
     {
-        if (!fs::is_regular_file(outp))
+        if (!fs::is_file(&outp))
             throw_error("output file exists but is not a file: ", outp);
 
-        auto msg = str("output file ", outp, " already exists. overwrite? [y / n]: ");
+        std::string msg = to_string("output file ", outp, " already exists. overwrite? [y / n]: ");
         char choice = choice_prompt(msg.c_str(), "yn", args);
 
         if (choice != 'y')
@@ -205,7 +201,8 @@ void pack(arguments *args)
 
     for (const char *path : args->input_files)
     {
-        auto epath = actually_absolute(path);
+        fs::path epath(path);
+        fs::absolute_canonical_path(&epath, &epath);
         add_path_files(&epath, &paths, args);
     }
 
@@ -253,12 +250,12 @@ void generate_header(arguments *args)
 
     fs::path opath = args->out_path;
 
-    if (fs::exists(opath))
+    if (fs::exists(&opath))
     {
-        if (!fs::is_regular_file(opath))
+        if (!fs::is_file(&opath))
             throw_error("not a writable file: ", opath);
 
-        std::string msg = str("generated header file ", opath, " exists, overwrite? [y / n]: ");
+        std::string msg = to_string("generated header file ", opath.c_str(), " exists, overwrite? [y / n]: ");
         char choice = choice_prompt(msg.c_str(), "yn", args);
 
         if (choice != 'y')
@@ -283,17 +280,19 @@ void generate_header(arguments *args)
 
     for (const char *path_ : args->input_files)
     {
-        fs::path path = actually_absolute(path_);
+        fs::path path(path_);
+        fs::absolute_canonical_path(&path, &path);
 
-        if (!fs::is_regular_file(path))
+        if (!fs::is_file(&path))
             throw_error("not a file: ", path);
 
-        fs::path rel = path.lexically_relative(args->base_path);
+        fs::path rel;
+        fs::relative_path(&args->base_path, &path, &rel);
 
         if (args->verbose)
             printf("reading toc of archive %s\n", path.c_str());
 
-        std::string var_prefix = sanitize_name(rel);
+        std::string var_prefix = sanitize_name(rel.c_str());
         read(&reader, rel.c_str());
 
         format(&stream, "\n#define %s \"%s\"\n", var_prefix.c_str(), rel.c_str());
@@ -307,7 +306,7 @@ void generate_header(arguments *args)
             get_package_entry(&reader, i, &entry);
             format(&stream, "    \"%s\",\n", entry.name);
 
-            auto len = strlen(entry.name);
+            auto len = string_length(entry.name);
 
             if (len > maxnamelen)
                 maxnamelen = len;
@@ -362,16 +361,19 @@ void extract_archive(arguments *args, package_reader *reader)
             continue;
         }
 
-        fs::path epath = outp / entry.name;
-        fs::path parent = epath.parent_path();
+        fs::path epath;
+        fs::append_path(&outp, entry.name, &epath);
 
-        if (!fs::exists(parent))
+        fs::path parent;
+        fs::parent_path(&epath, &parent);
+
+        if (!fs::exists(&parent))
         {
-            if (!fs::create_directories(parent))
+            if (!fs::create_directories(&parent))
                 throw_error("  could not create parent directory ", parent, " for file entry ", epath);
         }
 
-        if (fs::exists(epath))
+        if (fs::exists(&epath))
         {
             if (never_overwrite)
             {
@@ -379,12 +381,12 @@ void extract_archive(arguments *args, package_reader *reader)
                 continue;
             }
 
-            if (!fs::is_regular_file(epath))
+            if (!fs::is_file(&epath))
                 throw_error("entry output path exists but is not a file: ", epath);
 
             if (!always_overwrite)
             {
-                auto msg = str("output file ", epath, " already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ");
+                auto msg = to_string("output file ", epath, " already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ");
                 char choice = choice_prompt(msg.c_str(), "ynae", args);
 
                 if (choice == 'n')
@@ -428,7 +430,9 @@ void extract(arguments *args)
 
     for (const char *path : args->input_files)
     {
-        if (!fs::is_regular_file(path))
+        fs::path p(path);
+
+        if (!fs::is_file(&p))
             throw_error("not a file: '", path, "'");
 
         if (args->verbose)
@@ -560,61 +564,62 @@ void parse_arguments(int argc, char **argv, arguments *args)
     {
         const char *arg = argv[i];
 
-        if (strcmp(arg, "-h") == 0)
+        if (compare_strings(arg, "-h") == 0)
         {
             show_help_and_exit();
             continue;
         }
 
-        if (strcmp(arg, "-v") == 0)
+        if (compare_strings(arg, "-v") == 0)
         {
             args->verbose = true;
             continue;
         }
 
-        if (strcmp(arg, "-f") == 0)
+        if (compare_strings(arg, "-f") == 0)
         {
             args->force = true;
             continue;
         }
 
-        if (strcmp(arg, "-x") == 0)
+        if (compare_strings(arg, "-x") == 0)
         {
             args->extract = true;
             continue;
         }
 
-        if (strcmp(arg, "-g") == 0)
+        if (compare_strings(arg, "-g") == 0)
         {
             args->generate_header = true;
             continue;
         }
 
-        if (strcmp(arg, "-l") == 0)
+        if (compare_strings(arg, "-l") == 0)
         {
             args->list = true;
             continue;
         }
 
-        if (strcmp(arg, "-i") == 0)
+        if (compare_strings(arg, "-i") == 0)
         {
             args->treat_index_as_file = true;
             continue;
         }
 
-        if (strcmp(arg, "-o") == 0)
+        if (compare_strings(arg, "-o") == 0)
         {
             args->out_path = next_arg(argc, argv, &i);
             continue;
         }
 
-        if (strcmp(arg, "-b") == 0)
+        if (compare_strings(arg, "-b") == 0)
         {
-            args->base_path = fs::absolute(next_arg(argc, argv, &i));
+            args->base_path = fs::path(next_arg(argc, argv, &i));
+            fs::absolute_path(&args->base_path, &args->base_path);
             continue;
         }
 
-        if (strncmp(arg, "-", 1) == 0)
+        if (compare_strings(arg, "-", 1) == 0)
             throw_error("unexpected argument '", arg, "'");
 
         args->input_files.push_back(arg);
@@ -625,7 +630,9 @@ int main(int argc, char **argv)
 try
 {
     arguments args = default_arguments;
-    args.base_path = fs::absolute(fs::current_path());
+    fs::get_current_path(&args.base_path);
+    fs::absolute_path(&args.base_path, &args.base_path);
+
     parse_arguments(argc, argv, &args);
 
     if (args.input_files.empty())
@@ -634,7 +641,7 @@ try
     if (!is_or_make_directory(&args.base_path))
         throw_error("not a directory: '", args.base_path, "'");
 
-    args.base_path = actually_absolute(args.base_path);
+    fs::absolute_canonical_path(&args.base_path, &args.base_path);
 
     size_t action_count = 0;
     action_count += args.list ? 1 : 0;

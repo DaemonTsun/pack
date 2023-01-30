@@ -1,9 +1,8 @@
 
 #include <assert.h>
 #include <string.h>
-#include <stdexcept>
 
-#include "shl/string.hpp"
+#include "shl/error.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 
@@ -20,7 +19,7 @@ void add_file(package_writer *writer, const char *path, const char *name, bool l
     init(&stream);
 
     if (!open(&stream, path))
-        throw std::runtime_error(str("add_file: could not open path '", path, "'"));
+        throw_error("add_file: could not open path '%s'", path);
 
     calculate_file_size(&stream);
 
@@ -205,7 +204,7 @@ void write(package_writer *writer, const char *out_path)
     init(&stream);
 
     if (!open(&stream, out_path, MODE_WRITE))
-        throw std::runtime_error(str("package_writer write: could not open file for writing '", out_path, "'"));
+        throw_error("write: could not open file for writing '%s'", out_path);
 
     write(writer, &stream);
 

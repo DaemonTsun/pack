@@ -3,16 +3,19 @@
 #include <string.h>
 #include <t1/t1.hpp>
 
-#include "shl/filesystem.hpp"
+#include "fs/path.hpp"
+#include "shl/error.hpp"
+#include "shl/string.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
 #include "pack/package_loader.hpp"
 
 #include "testpack.h"
 
-char out_path[PATH_MAX];
-char out_file[PATH_MAX];
-char test_file1[PATH_MAX];
+#define PATH_MAX 4096
+char out_path[PATH_MAX] = {0};
+char out_file[PATH_MAX] = {0};
+char test_file1[PATH_MAX] = {0};
 const char *test_filename1 = "/test_file.txt";
 
 #define assert_flag_set(expr, flag)\
@@ -20,20 +23,28 @@ const char *test_filename1 = "/test_file.txt";
 
 void setup()
 {
-    get_executable_path(out_path);
+    fs::path o;
+    fs::path parent;
+    fs::get_executable_path(&o);
+    fs::parent_path(&o, &parent);
+
+    copy_string(o.c_str(), out_path, string_length(o.c_str()));
+
+    fs::set_current_path(&parent);
 
     char *s = strrchr(out_path, '/');
 
     if (s != nullptr)
         *s = '\0';
 
-    strncpy(out_file, out_path, PATH_MAX);
-    strncpy(test_file1, out_path, PATH_MAX);
+    copy_string(out_path, out_file, PATH_MAX);
+    copy_string(out_path, test_file1, PATH_MAX);
 
-    u64 len = strlen(out_file);
+    u64 len = string_length(out_file);
+    copy_string("/tmp", out_file + len, 4);
     strncpy(out_file + len, "/tmp", 4);
 
-    strncpy(test_file1 + len, test_filename1, strlen(test_filename1)+1);
+    copy_string(test_filename1, test_file1 + len, strlen(test_filename1)+1);
     printf("%s\n", test_file1);
 }
 
@@ -134,7 +145,10 @@ define_test(package_loader_loads_package_file)
 {
     package_loader loader;
 
-    load_package_file(&loader, testpack_pack);
+    fs::path pth(out_path);
+    fs::append_path(&pth, testpack_pack);
+
+    load_package_file(&loader, pth.c_str());
 
     assert_equal(testpack_pack_file_count, 1);
 
