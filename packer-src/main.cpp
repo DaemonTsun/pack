@@ -671,3 +671,8 @@ catch (std::exception &e)
     fprintf(stderr, "error: %s\n", e.what());
     return 1;
 }
+catch (error &e)
+{
+    fprintf(stderr, "error: %s\n", e.what);
+    return 1;
+}
