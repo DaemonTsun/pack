@@ -46,7 +46,7 @@ find_package(SDL2_image REQUIRED)
 
 add_executable(pack-demo)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} ${OUTPUT_FILES} "${TEST_PACK_H}")
-target_include_directories(pack-demo PUBLIC "${pack_SOURCES_DIR}" ${SDL2_INCLUDE_DIRS})
+target_include_directories(pack-demo PUBLIC "${pack_SOURCES_DIR}" "${shl-0.6.0_SOURCES_DIR}" "${fs-0.6.0_SOURCES_DIR}" ${SDL2_INCLUDE_DIRS})
 add_custom_target(run COMMAND "${DEMOBIN}/pack-demo")
 
 # link
