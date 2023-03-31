@@ -10,7 +10,7 @@
 #include "fs/path.hpp"
 #include "shl/file_stream.hpp"
 #include "shl/string.hpp"
-#include "shl/string_manip.hpp"
+#include "shl/format.hpp"
 #include "shl/error.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
@@ -187,8 +187,9 @@ void pack(arguments *args)
         if (!fs::is_file(&outp))
             throw_error("output file exists but is not a file: ", outp);
 
-        std::string msg = to_string("output file ", outp, " already exists. overwrite? [y / n]: ");
-        char choice = choice_prompt(msg.c_str(), "yn", args);
+        auto msg = tformat("output file %s already exists. overwrite? [y / n]: ", outp.c_str());
+
+        char choice = choice_prompt(msg.c_str, "yn", args);
 
         if (choice != 'y')
         {
@@ -255,8 +256,8 @@ void generate_header(arguments *args)
         if (!fs::is_file(&opath))
             throw_error("not a writable file: ", opath);
 
-        std::string msg = to_string("generated header file ", opath.c_str(), " exists, overwrite? [y / n]: ");
-        char choice = choice_prompt(msg.c_str(), "yn", args);
+        auto msg = tformat("generated header file %s exists, overwrite? [y / n]: ", opath.c_str());
+        char choice = choice_prompt(msg.c_str, "yn", args);
 
         if (choice != 'y')
         {
@@ -386,8 +387,8 @@ void extract_archive(arguments *args, package_reader *reader)
 
             if (!always_overwrite)
             {
-                auto msg = to_string("output file ", epath, " already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ");
-                char choice = choice_prompt(msg.c_str(), "ynae", args);
+                auto msg = tformat("output file %s already exists. overwrite? [y / n / (a)lways overwrite / n(e)ver overwrite]: ", epath.c_str());
+                char choice = choice_prompt(msg.c_str, "ynae", args);
 
                 if (choice == 'n')
                 {
