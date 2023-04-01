@@ -17,8 +17,8 @@ add_lib(pack STATIC
     CPP_WARNINGS ALL SANE
     TESTS "${TEST_SOURCE_DIR}"
     EXT
-        LIB shl 0.6.1 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
-        LIB fs  0.6 "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
+        LIB shl 0.6.3 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
+        LIB fs  0.6   "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
     )
 
 add_exe(packer
@@ -28,7 +28,7 @@ add_exe(packer
     CPP_VERSION 20
     CPP_WARNINGS ALL SANE
     LIBRARIES ${pack_TARGET}
-    INCLUDE_DIRS "${pack_SOURCES_DIR}" "${shl-0.6.1_SOURCES_DIR}" "${fs-0.6_SOURCES_DIR}"
+    INCLUDE_DIRS "${pack_SOURCES_DIR}" "${shl-0.6.3_SOURCES_DIR}" "${fs-0.6_SOURCES_DIR}"
     )
 
 exit_if_included()
