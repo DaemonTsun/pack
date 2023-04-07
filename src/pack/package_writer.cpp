@@ -1,44 +1,42 @@
 
 #include <assert.h>
-#include <string.h>
+#include <stddef.h>
 
 #include "shl/error.hpp"
+#include "shl/defer.hpp"
+#include "shl/memory.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 
-void add_file(package_writer *writer, const char *path, const char *name, bool lazy)
+void init(package_writer_entry *entry)
+{
+    assert(entry != nullptr);
+
+    init(&entry->name);
+}
+
+void free(package_writer_entry *entry)
+{
+    assert(entry != nullptr);
+
+    free(&entry->name);
+
+    if (entry->type == package_writer_entry_type::Memory)
+        close(&entry->content.memory);
+}
+
+void init(package_writer *writer)
 {
     assert(writer != nullptr);
-    assert(path != nullptr);
 
-    package_writer_entry &entry = writer->entries.emplace_back();
-    entry.flags = PACK_TOC_FLAG_FILE;
-    entry.name = name;
+    init(&writer->entries);
+}
 
-    file_stream stream;
-    init(&stream);
+void free(package_writer *writer)
+{
+    assert(writer != nullptr);
 
-    if (!open(&stream, path))
-        throw_error("add_file: could not open path '%s'", path);
-
-    calculate_file_size(&stream);
-
-    if (lazy)
-    {
-        entry.type = package_writer_entry_type::File;
-        entry.content.file.path = path;
-        entry.content.file.size = stream.size;
-    }
-    else
-    {
-        entry.type = package_writer_entry_type::Memory;
-        init(&entry.content.memory);
-
-        open(&entry.content.memory, stream.size, false);
-        read_entire_file(&stream, entry.content.memory.data);
-    }
-
-    close(&stream);
+    free<true>(&writer->entries);
 }
 
 void add_file(package_writer *writer, const char *path, bool lazy)
@@ -46,13 +44,49 @@ void add_file(package_writer *writer, const char *path, bool lazy)
     add_file(writer, path, path, lazy);
 }
 
+void add_file(package_writer *writer, const char *path, const char *name, bool lazy)
+{
+    assert(writer != nullptr);
+    assert(path != nullptr);
+
+    package_writer_entry *entry = add_at_end(&writer->entries);
+    init(entry);
+    entry->flags = PACK_TOC_FLAG_FILE;
+    copy_string(name, &entry->name);
+
+    file_stream stream;
+    init(&stream);
+
+    if (!open(&stream, path))
+        throw_error("add_file: could not open path '%s'", path);
+
+    defer { close(&stream); };
+
+    calculate_file_size(&stream);
+
+    if (lazy)
+    {
+        entry->type = package_writer_entry_type::File;
+        entry->content.file.path = path;
+        entry->content.file.size = stream.size;
+    }
+    else
+    {
+        entry->type = package_writer_entry_type::Memory;
+        init(&entry->content.memory);
+
+        open(&entry->content.memory, stream.size, false);
+        read_entire_file(&stream, entry->content.memory.data);
+    }
+}
+
 void add_entry(package_writer *writer, package_writer_entry *entry)
 {
     assert(writer != nullptr);
     assert(entry != nullptr);
 
-    package_writer_entry &x = writer->entries.emplace_back();
-    x = *entry;
+    package_writer_entry *x = add_at_end(&writer->entries);
+    *x = *entry;
 }
 
 void add_entry(package_writer *writer, const char *str, const char *name)
@@ -61,13 +95,14 @@ void add_entry(package_writer *writer, const char *str, const char *name)
     assert(str != nullptr);
     assert(name != nullptr);
 
-    package_writer_entry &entry = writer->entries.emplace_back();
-    entry.name = name;
-    entry.flags = PACK_TOC_NO_FLAGS;
-    entry.type = package_writer_entry_type::Memory;
+    package_writer_entry *entry = add_at_end(&writer->entries);
+    init(entry);
+    entry->flags = PACK_TOC_NO_FLAGS;
+    entry->type = package_writer_entry_type::Memory;
+    copy_string(name, &entry->name);
 
-    open(&entry.content.memory, strlen(str));
-    write(&entry.content.memory, str);
+    open(&entry->content.memory, string_length(str));
+    write(&entry->content.memory, str);
 }
 
 void add_entry(package_writer *writer, void *data, size_t size, const char *name)
@@ -76,13 +111,14 @@ void add_entry(package_writer *writer, void *data, size_t size, const char *name
     assert(data != nullptr);
     assert(name != nullptr);
 
-    package_writer_entry &entry = writer->entries.emplace_back();
-    entry.name = name;
-    entry.flags = PACK_TOC_NO_FLAGS;
-    entry.type = package_writer_entry_type::Memory;
+    package_writer_entry *entry = add_at_end(&writer->entries);
+    init(entry);
+    entry->flags = PACK_TOC_NO_FLAGS;
+    entry->type = package_writer_entry_type::Memory;
+    copy_string(name, &entry->name);
 
-    open(&entry.content.memory, size, false);
-    write(&entry.content.memory, data, size);
+    open(&entry->content.memory, size, false);
+    write(&entry->content.memory, data, size);
 }
 
 void write_entry(file_stream *out, package_writer_entry *entry)
@@ -98,10 +134,10 @@ void write_entry(file_stream *out, package_writer_entry *entry)
         open(&stream, entry->content.file.path);
         calculate_file_size(&stream);
         
-        void *mem = malloc(stream.size);
+        void *mem = allocate_memory(stream.size);
         read_entire_file(&stream, mem);
         write(out, mem, stream.size);
-        free(mem);
+        free_memory(mem);
         close(&stream);
     }
 }
@@ -119,10 +155,10 @@ void write(package_writer *writer, file_stream *out)
     assert(writer != nullptr);
     assert(out != nullptr);
 
-    size_t entry_count = writer->entries.size();
+    size_t entry_count = writer->entries.size;
 
     package_header header;
-    strncpy(header.magic, PACK_HEADER_MAGIC, 4);
+    copy_string(PACK_HEADER_MAGIC, header.magic, 4);
     header.version = PACK_VERSION;
     header.flags = PACK_NO_FLAGS;
 
@@ -134,8 +170,9 @@ void write(package_writer *writer, file_stream *out)
     write(out, &header);
 
     // write the entry contents
-    std::vector<u64> content_offsets;
-    content_offsets.resize(entry_count);
+    array<u64> content_offsets;
+    init(&content_offsets, entry_count);
+    defer { free(&content_offsets); };
 
     for (u64 i = 0; i < entry_count; ++i)
     {
@@ -150,13 +187,14 @@ void write(package_writer *writer, file_stream *out)
     write_at(out, &name_table_pos, offsetof(package_header, names_offset));
     seek(out, name_table_pos);
 
-    std::vector<u64> name_offsets;
-    name_offsets.resize(entry_count);
+    array<u64> name_offsets;
+    init(&name_offsets, entry_count);
+    defer { free(&name_offsets); };
 
     for (u64 i = 0; i < entry_count; ++i)
     {
         name_offsets[i] = tell(out);
-        write(out, writer->entries[i].name.c_str());
+        write(out, (const char*)(writer->entries[i].name));
         write(out, "\0", 1);
     }
 
@@ -173,13 +211,13 @@ void write(package_writer *writer, file_stream *out)
     seek(out, toc_pos);
 
     package_toc toc;
-    strncpy(toc.magic, PACK_TOC_MAGIC, 4);
+    copy_string(PACK_TOC_MAGIC, toc.magic, 4);
     toc._padding = 0;
     toc.entry_count = entry_count;
 
     write(out, &toc);
 
-    u64 toc_entry_pos = toc_pos + sizeof(toc);
+    // u64 toc_entry_pos = toc_pos + sizeof(toc);
     
     for (u64 i = 0; i < entry_count; ++i)
     {
@@ -209,17 +247,4 @@ void write(package_writer *writer, const char *out_path)
     write(writer, &stream);
 
     close(&stream);
-}
-
-void free(package_writer *writer)
-{
-    assert(writer != nullptr);
-
-    for (auto &entry : writer->entries)
-    {
-        if (entry.type != package_writer_entry_type::Memory)
-            continue;
-
-        close(&entry.content.memory);
-    }
 }

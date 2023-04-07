@@ -1,17 +1,17 @@
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
-#include <algorithm> // fuc
-#include <filesystem> // guess i failed fs
-#include <vector>
-
 #include "fs/path.hpp"
+#include "fs/iterator.hpp"
 #include "shl/file_stream.hpp"
+#include "shl/memory.hpp"
 #include "shl/string.hpp"
 #include "shl/format.hpp"
+#include "shl/print.hpp"
 #include "shl/error.hpp"
+#include "shl/defer.hpp"
 #include "pack/package.hpp"
 #include "pack/package_writer.hpp"
 #include "pack/package_reader.hpp"
@@ -29,10 +29,10 @@ struct arguments
     bool generate_header; // -g
     bool list; // -l
     bool treat_index_as_file; // -i
-    const char *out_path; // -o
+    const_string out_path; // -o
 
     fs::path base_path; // -b, defaults to current working directory
-    std::vector<const char *> input_files; // anything thats not an arg
+    array<const_string> input_files; // anything thats not an arg
 };
 
 const arguments default_arguments
@@ -43,8 +43,18 @@ const arguments default_arguments
     .generate_header = false,
     .list = false,
     .treat_index_as_file = false,
-    .out_path = nullptr,
+    .out_path = const_string{nullptr, 0},
 };
+
+void init(arguments *args)
+{
+    init(&args->input_files);
+}
+
+void free(arguments *args)
+{
+    free(&args->input_files);
+}
 
 bool is_or_make_directory(fs::path *path)
 {
@@ -70,10 +80,10 @@ struct packer_path
     fs::path target_path; // the name it has inside the package
 };
 
-void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *args)
+void add_path_files(fs::path *path, array<packer_path> *paths, arguments *args)
 {
     if (args->verbose)
-        printf(" adding path '%s'\n", path->c_str());
+        tprint(" adding path '%s'\n", path->c_str());
 
     if (!fs::exists(path))
         throw_error("can't pack path because path does not exist: %s", path->c_str());
@@ -84,7 +94,7 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
         {
             fs::path rel;
             fs::relative_path(&args->base_path, path, &rel);
-            paths->push_back(packer_path{*path, rel});
+            add_at_end(paths, packer_path{*path, rel});
             return;
         }
 
@@ -95,14 +105,16 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
         {
             fs::path rel;
             fs::relative_path(&args->base_path, path, &rel);
-            paths->push_back(packer_path{*path, rel});
+            add_at_end(paths, packer_path{*path, rel});
             return;
         }
 
         if (args->verbose)
-            printf(" adding entries of index file %s\n", path->c_str());
+            tprint(" adding entries of index file %s\n", path->c_str());
 
-        std::vector<fs::path> index_paths;
+        array<fs::path> index_paths;
+        init(&index_paths);
+        defer { free(&index_paths); };
 
         file_stream findex;
         open(&findex, path->c_str());
@@ -115,35 +127,41 @@ void add_path_files(fs::path *path, std::vector<packer_path> *paths, arguments *
             if (len == 0)
                 continue;
 
-            std::string strline = std::string(line, string_length(line) - 1);
+            const_string strline = to_const_string(line);
 
-            if (is_blank(strline.c_str()))
+            if (strline.size > 0)
+                strline.size--;
+
+            if (is_blank(strline))
                 continue;
 
-            if (begins_with(strline.c_str(), "##"))
+            if (begins_with(strline, "##"_cs))
                 continue;
 
-            fs::path *pth = &index_paths.emplace_back(strline.c_str());
-            fs::absolute_canonical_path(pth, pth);
+            fs::path *pth = add_elements(&index_paths, 1);
+            fs::set_path(pth, strline.c_str);
+            fs::absolute_canonical_path(pth);
         }
 
         close(&findex);
 
         if (line != nullptr)
-            free(line);
+            free_memory(line);
 
-        for (auto &ipath : index_paths)
-            add_path_files(&ipath, paths, args);
+        for_array(ipath, &index_paths)
+            add_path_files(ipath, paths, args);
     }
     else if (fs::is_directory(path))
-        for (const auto &entry : std::filesystem::directory_iterator(path->c_str()))
+    {
+        iterate_path(p, path)
         {
-            fs::path epath(entry.path().c_str());
-            fs::absolute_canonical_path(&epath, &epath);
+            fs::path epath(*p);
+            fs::absolute_canonical_path(&epath);
             add_path_files(&epath, paths, args);
         }
+    }
     else
-        throw_error("cannot add unknown path ", *path);
+        throw_error("cannot add unknown path %s", path->c_str());
 }
 
 char choice_prompt(const char *message, const char *choices, arguments *args)
@@ -156,7 +174,7 @@ char choice_prompt(const char *message, const char *choices, arguments *args)
 
     do
     {
-        printf("\n%s", message);
+        tprint("\n%s", message);
 prompt_no_message:
 
         ret = getchar();
@@ -176,11 +194,11 @@ prompt_no_message:
 
 void pack(arguments *args)
 {
-    if (args->out_path == nullptr)
+    if (args->out_path.size == 0)
         throw_error("no output file specified");
 
-    fs::path outp(args->out_path);
-    fs::absolute_path(&outp, &outp);
+    fs::path outp(args->out_path.c_str);
+    fs::absolute_path(&outp);
 
     if (fs::exists(&outp))
     {
@@ -188,68 +206,90 @@ void pack(arguments *args)
             throw_error("output file exists but is not a file: ", outp);
 
         auto msg = tformat("output file %s already exists. overwrite? [y / n]: ", outp.c_str());
-
         char choice = choice_prompt(msg.c_str, "yn", args);
 
         if (choice != 'y')
         {
-            puts("aborting");
+            put("aborting");
             exit(0);
         }
     }
 
-    std::vector<packer_path> paths;
+    array<packer_path> paths;
+    init(&paths);
+    defer { free(&paths); };
 
-    for (const char *path : args->input_files)
+    for_array(input_path, &args->input_files)
     {
-        fs::path epath(path);
-        fs::absolute_canonical_path(&epath, &epath);
+        fs::path epath(input_path->c_str);
+        fs::absolute_canonical_path(&epath);
         add_path_files(&epath, &paths, args);
     }
 
     if (args->verbose)
     {
-        puts("\nfiles:");
+        put("\nfiles:");
 
-        for (const auto &path : paths)
-            printf("  %s -> %s\n", path.input_path.c_str(), path.target_path.c_str());
+        for_array(pth, &paths)
+            tprint("  %s -> %s\n", pth->input_path.c_str(), pth->target_path.c_str());
     }
 
     package_writer writer;
+    init(&writer);
+    defer { free(&writer); };
     
-    for (const auto &path : paths)
-        add_file(&writer, path.input_path.c_str(), path.target_path.c_str());
+    for_array(pth, &paths)
+        add_file(&writer, pth->input_path.c_str(), pth->target_path.c_str());
 
     write(&writer, outp.c_str());
-    free(&writer);
 }
 
-std::string sanitize_name(std::string s)
+void sanitize_name(string *s)
 {
-    std::replace(s.begin(), s.end(), '.', '_');
-    std::replace(s.begin(), s.end(), '/', '_');
+    printf("before: %s, %lu\n", s->data.data, s->data.size);
+    replace_all(s, '.', '_'); 
+    replace_all(s, '/', '_'); 
 
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](auto ch)
-    {
-        return ch != '_';
-    }));
+    u64 i = 0;
 
-    for (unsigned i = 0; i < s.length() - 1;)
+    while (s->data[i] == '_' && i < string_length(s))
+        i++;
+
+    if (i > 0)
+        remove_elements(&s->data, 0, i);
+
+
+    char c;
+    for (u64 j = 0; j < string_length(s) - 1;)
     {
-        if (s[i] == s[i + 1])
-            s.erase(i, 2);
-        else ++i;
+        c = s->data[j];
+
+        if (c != '_')
+        {
+            ++j;
+            continue;
+        }
+
+        if (c == s->data[j + 1])
+        {
+            // slow but whatever
+            remove_elements(&s->data, j, 1);
+            s->data[s->data.size] = '\0';
+        }
+        else ++j;
     }
 
-    return s;
+    s->data[s->data.size] = '\0';
+
+    printf("after: %s\n", s->data.data);
 }
 
 void generate_header(arguments *args)
 {
-    if (args->out_path == nullptr)
+    if (args->out_path.size == 0)
         throw_error("no output file specified");
 
-    fs::path opath = args->out_path;
+    fs::path opath(args->out_path.c_str);
 
     if (fs::exists(&opath))
     {
@@ -269,7 +309,7 @@ void generate_header(arguments *args)
     file_stream stream;
     
     if (!open(&stream, opath.c_str(), MODE_WRITE, false, false))
-        throw_error("could not open ", opath, " for writing");
+        throw_error("could not open '%s' for writing", opath.c_str());
 
     format(&stream, R"(// this file was generated by pack packer v%s
 
@@ -279,26 +319,29 @@ void generate_header(arguments *args)
     package_reader reader;
     package_reader_entry entry;
 
-    for (const char *path_ : args->input_files)
+    for_array(path_, &args->input_files)
     {
-        fs::path path(path_);
-        fs::absolute_canonical_path(&path, &path);
+        fs::path path(path_->c_str);
+        fs::absolute_canonical_path(&path);
 
         if (!fs::is_file(&path))
-            throw_error("not a file: ", path);
+            throw_error("not a file: %s", path.c_str());
 
         fs::path rel;
         fs::relative_path(&args->base_path, &path, &rel);
 
         if (args->verbose)
-            printf("reading toc of archive %s\n", path.c_str());
+            tprint("reading toc of archive %s\n", path.c_str());
 
-        std::string var_prefix = sanitize_name(rel.c_str());
+        string var_prefix = ""_s;
+        copy_string(rel.c_str(), &var_prefix);
+        sanitize_name(&var_prefix);
+
         read(&reader, rel.c_str());
 
-        format(&stream, "\n#define %s \"%s\"\n", var_prefix.c_str(), rel.c_str());
-        format(&stream, "#define %s_file_count %u\n", var_prefix.c_str(), reader.toc->entry_count);
-        format(&stream, "static const char *%s_files[] = {\n", var_prefix.c_str());
+        format(&stream, "\n#define %s \"%s\"\n", var_prefix.data.data, rel.c_str());
+        format(&stream, "#define %s_file_count %u\n", var_prefix.data.data, reader.toc->entry_count);
+        format(&stream, "static const char *%s_files[] = {\n", var_prefix.data.data);
 
         size_t maxnamelen = 0;
 
@@ -318,19 +361,25 @@ void generate_header(arguments *args)
         char entry_format_str[256] = {0};
         sprintf(entry_format_str, "#define %%s__%%-%lus %%u\n", maxnamelen);
 
+        string varname = ""_s;
+
         for (u64 i = 0; i < reader.toc->entry_count; ++i)
         {
             get_package_entry(&reader, i, &entry);
 
             if (args->verbose)
-                printf("  adding entry %s\n", entry.name);
+                tprint("  adding entry %s\n", entry.name);
 
-            std::string varname = sanitize_name(entry.name);
+            copy_string(entry.name, &varname);
+            sanitize_name(&varname);
 
+            format(&stream, entry_format_str, var_prefix.data.data, varname.data.data, i);
 
-            format(&stream, entry_format_str, var_prefix.c_str(), varname.c_str(), i);
         }
 
+        free(&varname);
+
+        free(&var_prefix);
         free(&reader);
     }
 
@@ -342,13 +391,13 @@ void extract_archive(arguments *args, package_reader *reader)
     file_stream stream;
     init(&stream);
     package_reader_entry entry;
-    fs::path outp = args->out_path;
+    fs::path outp(args->out_path.c_str);
 
     bool always_overwrite = false;
     bool never_overwrite = false;
 
-    if (!is_or_make_directory(&outp))
-        throw_error("output directory not a directory: ", outp);
+    if (!::is_or_make_directory(&outp))
+        throw_error("output directory not a directory: %s", outp.c_str());
 
     for (int i = 0; i < reader->toc->entry_count; ++i)
     {
@@ -357,7 +406,7 @@ void extract_archive(arguments *args, package_reader *reader)
         if ((entry.flags & PACK_TOC_FLAG_FILE) != PACK_TOC_FLAG_FILE)
         {
             if (args->verbose)
-                printf("  skipping non-file entry %d: %s\n", i, entry.name);
+                tprint("  skipping non-file entry %d: %s\n", i, entry.name);
 
             continue;
         }
@@ -371,19 +420,19 @@ void extract_archive(arguments *args, package_reader *reader)
         if (!fs::exists(&parent))
         {
             if (!fs::create_directories(&parent))
-                throw_error("  could not create parent directory ", parent, " for file entry ", epath);
+                throw_error("  could not create parent directory '%s' for file entry '%s'", parent.c_str(), epath.c_str());
         }
 
         if (fs::exists(&epath))
         {
             if (never_overwrite)
             {
-                printf("skipping existing file %s\n", epath.c_str());
+                tprint("skipping existing file %s\n", epath.c_str());
                 continue;
             }
 
             if (!fs::is_file(&epath))
-                throw_error("entry output path exists but is not a file: ", epath);
+                throw_error("entry output path exists but is not a file: %s", epath.c_str());
 
             if (!always_overwrite)
             {
@@ -392,24 +441,24 @@ void extract_archive(arguments *args, package_reader *reader)
 
                 if (choice == 'n')
                 {
-                    puts("skipping");
+                    put("skipping");
                     continue;
                 }
                 else if (choice == 'a')
                 {
-                    puts("always overwriting");
+                    put("always overwriting");
                     always_overwrite = true;
                 }
                 else if (choice == 'e')
                 {
-                    puts("never overwriting");
-                    printf("skipping existing file %s\n", epath.c_str());
+                    put("never overwriting");
+                    tprint("skipping existing file %s\n", epath.c_str());
                     never_overwrite = true;
                     continue;
                 }
                 else if (choice == 'x')
                 {
-                    puts("aborting");
+                    put("aborting");
                     exit(0);
                 }
             }
@@ -429,23 +478,23 @@ void extract(arguments *args)
 {
     package_reader reader;
 
-    for (const char *path : args->input_files)
+    for_array(path, &args->input_files)
     {
-        fs::path p(path);
+        fs::path p(path->c_str);
 
         if (!fs::is_file(&p))
-            throw_error("not a file: '", path, "'");
+            throw_error("not a file: '%s'", path->c_str);
 
         if (args->verbose)
-            printf("extracting archive %s\n", path);
+            tprint("extracting archive %s\n", path);
 
-        read(&reader, path);
+        read(&reader, path->c_str);
         extract_archive(args, &reader);
         free(&reader);
     }
 }
 
-#define max(a, b) (a >= b ? a : b)
+#define max(a, b) ((a) >= (b) ? (a) : (b))
 
 void print_package_reader_entry_flags(file_stream *out, const package_reader_entry *entry)
 {
@@ -453,7 +502,7 @@ void print_package_reader_entry_flags(file_stream *out, const package_reader_ent
 
     if ((entry->flags & PACK_TOC_FLAG_FILE) == PACK_TOC_FLAG_FILE)
     {
-        putc('F', out->handle);
+        put(out->handle, 'F');
         count++;
     }
 
@@ -478,9 +527,9 @@ void list(arguments *args)
 {
     file_stream out;
 
-    if (args->out_path != nullptr)
+    if (args->out_path.size > 0)
     {
-        if (!open(&out, args->out_path, MODE_WRITE, false, false))
+        if (!open(&out, args->out_path.c_str, MODE_WRITE, false, false))
             throw_error("could not open ", args->out_path, " for writing");
     }
     else
@@ -488,12 +537,12 @@ void list(arguments *args)
         out.handle = stdout;
     }
 
-    for (const char *input : args->input_files)
+    for_array(input, &args->input_files)
     {
-        format(&out, "contents of package %s:\n", input);
+        format(&out, "contents of package %s:\n", input->c_str);
 
         package_reader reader;
-        read(&reader, input);
+        read(&reader, input->c_str);
 
         format(&out, "%u entries found\n", reader.toc->entry_count);
         package_reader_entry entry;
@@ -520,13 +569,13 @@ void list(arguments *args)
         }
 
         free(&reader);
-        puts("");
+        put("");
     }
 }
 
 void show_help_and_exit()
 {
-    puts(packer_NAME R"( [-h] [-v] [-x | -g | -l] [-i] [-b <path>] -o <path> <files...>
+    put(packer_NAME R"( [-h] [-v] [-x | -g | -l] [-i] [-b <path>] -o <path> <files...>
   v)"   packer_VERSION R"(
   by )" packer_AUTHOR R"(
 
@@ -553,7 +602,7 @@ ARGUMENTS:
 const char *next_arg(int argc, char **argv, int *i)
 {
     if (*i >= argc - 1)
-        throw_error("argument '", argv[*i], "' missing parameter");
+        throw_error("argument '%s' missing parameter", argv[*i]);
 
     *i = *i + 1;
     return argv[*i];
@@ -563,67 +612,67 @@ void parse_arguments(int argc, char **argv, arguments *args)
 {
     for (int i = 1; i < argc; ++i)
     {
-        const char *arg = argv[i];
+        const_string arg = to_const_string(argv[i]);
 
-        if (compare_strings(arg, "-h") == 0)
+        if (arg == "-h"_cs)
         {
             show_help_and_exit();
             continue;
         }
 
-        if (compare_strings(arg, "-v") == 0)
+        if (arg == "-v"_cs)
         {
             args->verbose = true;
             continue;
         }
 
-        if (compare_strings(arg, "-f") == 0)
+        if (arg == "-f"_cs)
         {
             args->force = true;
             continue;
         }
 
-        if (compare_strings(arg, "-x") == 0)
+        if (arg == "-x"_cs)
         {
             args->extract = true;
             continue;
         }
 
-        if (compare_strings(arg, "-g") == 0)
+        if (arg == "-g"_cs)
         {
             args->generate_header = true;
             continue;
         }
 
-        if (compare_strings(arg, "-l") == 0)
+        if (arg == "-l"_cs)
         {
             args->list = true;
             continue;
         }
 
-        if (compare_strings(arg, "-i") == 0)
+        if (arg == "-i"_cs)
         {
             args->treat_index_as_file = true;
             continue;
         }
 
-        if (compare_strings(arg, "-o") == 0)
+        if (arg == "-o"_cs)
         {
-            args->out_path = next_arg(argc, argv, &i);
+            args->out_path = to_const_string(next_arg(argc, argv, &i));
             continue;
         }
 
-        if (compare_strings(arg, "-b") == 0)
+        if (arg == "-b"_cs)
         {
             args->base_path = fs::path(next_arg(argc, argv, &i));
-            fs::absolute_path(&args->base_path, &args->base_path);
+            fs::absolute_path(&args->base_path);
             continue;
         }
 
-        if (compare_strings(arg, "-", 1) == 0)
-            throw_error("unexpected argument '", arg, "'");
+        if (compare_strings(arg, "-"_cs, 1) == 0)
+            throw_error("unexpected argument '%s'", arg);
 
-        args->input_files.push_back(arg);
+        add_at_end(&args->input_files, arg);
     }
 }
 
@@ -631,18 +680,20 @@ int main(int argc, char **argv)
 try
 {
     arguments args = default_arguments;
+    init(&args);
+
     fs::get_current_path(&args.base_path);
-    fs::absolute_path(&args.base_path, &args.base_path);
+    fs::absolute_path(&args.base_path);
 
     parse_arguments(argc, argv, &args);
 
-    if (args.input_files.empty())
+    if (args.input_files.size == 0)
         throw_error("no input files");
 
     if (!is_or_make_directory(&args.base_path))
-        throw_error("not a directory: '", args.base_path, "'");
+        throw_error("not a directory: '%s'", args.base_path.c_str());
 
-    fs::absolute_canonical_path(&args.base_path, &args.base_path);
+    fs::absolute_canonical_path(&args.base_path);
 
     size_t action_count = 0;
     action_count += args.list ? 1 : 0;
@@ -664,16 +715,18 @@ try
     else
         pack(&args);
 
-    puts("done");
+    free(&args);
+
+    put("done");
     return 0;
-}
-catch (std::exception &e)
-{
-    fprintf(stderr, "error: %s\n", e.what());
-    return 1;
 }
 catch (error &e)
 {
-    fprintf(stderr, "error: %s\n", e.what);
+    tprint(stderr, "error: %s\n", e.what);
+    return 1;
+}
+catch (...)
+{
+    tprint(stderr, "error: unknown error\n");
     return 1;
 }

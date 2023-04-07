@@ -14,21 +14,24 @@ add_lib(pack STATIC
     SOURCES_DIR "${ROOT}/src/"
     GENERATE_TARGET_HEADER "${ROOT}/src/pack/pack_info.hpp"
     CPP_VERSION 20
-    CPP_WARNINGS ALL SANE
+    CPP_WARNINGS ALL SANE FATAL
     TESTS "${TEST_SOURCE_DIR}"
     EXT
-        LIB shl 0.6.3 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
-        LIB fs  0.6   "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
+        LIB shl 0.6.6 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
+        LIB fs  0.6.1 "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
     )
+
+set(shl_SOURCES_DIR "${shl-0.6.6_SOURCES_DIR}")
+set(fs_SOURCES_DIR "${fs-0.6.1_SOURCES_DIR}")
 
 add_exe(packer
     VERSION 0.8.1
     SOURCES_DIR "${ROOT}/packer-src"
     GENERATE_TARGET_HEADER "${ROOT}/packer-src/packer_info.hpp"
     CPP_VERSION 20
-    CPP_WARNINGS ALL SANE
+    CPP_WARNINGS ALL SANE FATAL
     LIBRARIES ${pack_TARGET}
-    INCLUDE_DIRS "${pack_SOURCES_DIR}" "${shl-0.6.3_SOURCES_DIR}" "${fs-0.6_SOURCES_DIR}"
+    INCLUDE_DIRS "${pack_SOURCES_DIR}" "${shl_SOURCES_DIR}" "${fs_SOURCES_DIR}"
     )
 
 exit_if_included()

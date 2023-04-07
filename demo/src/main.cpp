@@ -56,10 +56,14 @@ void setup_texture()
         throw sdlexception();
 
     SDL_FreeSurface(surface);
+    SDL_RWclose(rw);
+    close(&imgmem);
 }
 
 void setup()
 {
+    init(&loader);
+
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
         throw sdlexception();
 
@@ -201,6 +205,7 @@ void event_loop()
 
 void cleanup()
 {
+    SDL_DestroyRenderer(renderer);
     SDL_Quit();
 
     free(&loader);

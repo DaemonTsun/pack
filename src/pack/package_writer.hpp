@@ -1,9 +1,9 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
 
+#include "shl/string.hpp"
+#include "shl/array.hpp"
 #include "shl/file_stream.hpp"
 #include "shl/memory_stream.hpp"
 #include "pack/package.hpp"
@@ -23,7 +23,7 @@ struct package_writer_file
 struct package_writer_entry
 {
     // name, usually path
-    std::string name;
+    string name;
     u64 flags;
     package_writer_entry_type type;
 
@@ -34,13 +34,20 @@ struct package_writer_entry
     } content;
 };
 
+void init(package_writer_entry *entry);
+void free(package_writer_entry *entry);
+
 struct package_writer
 {
-    std::vector<package_writer_entry> entries;
+    array<package_writer_entry> entries;
 };
 
-void add_file(package_writer *writer, const char *path, const char *name, bool lazy = true);
+void init(package_writer *writer);
+void free(package_writer *writer);
+
 void add_file(package_writer *writer, const char *path, bool lazy = true);
+void add_file(package_writer *writer, const char *path, const char *name, bool lazy = true);
+
 void add_entry(package_writer *writer, package_writer_entry *entry);
 void add_entry(package_writer *writer, const char *str, const char *name = "");
 void add_entry(package_writer *writer, void *data, size_t size, const char *name = "");
