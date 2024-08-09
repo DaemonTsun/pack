@@ -45,6 +45,7 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
 
 add_executable(pack-demo)
+set_property(TARGET pack-demo PROPERTY CXX_STANDARD 20)
 target_sources(pack-demo PUBLIC ${DEMO_HEADERS} ${DEMO_SOURCES} ${OUTPUT_FILES} "${TEST_PACK_H}")
 target_include_directories(pack-demo PUBLIC "${pack_SOURCES_DIR}" ${pack_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
 add_custom_target(run COMMAND "${DEMOBIN}/pack-demo")
