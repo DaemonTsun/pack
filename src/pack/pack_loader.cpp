@@ -137,6 +137,9 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
 
             loaded_entry->timestamp = timestamp;
         }
+
+        out_entry->data = loaded_entry->data;
+        out_entry->size = loaded_entry->size;
     }
 
     return true;

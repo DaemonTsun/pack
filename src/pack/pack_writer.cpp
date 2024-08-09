@@ -250,10 +250,9 @@ bool pack_writer_write_to_file(pack_writer *writer, io_handle h, s64 offset, err
     {
         name_offsets[i] = tell(out, err);
 
-        if (write(out, (const char*)(writer->entries[i].name), err) < 0)
-            return false;
+        string *name = &writer->entries[i].name;
 
-        if (write(out, "\0", 1, err) < 0)
+        if (write(out, name->data, name->size + 1, err) < 0)
             return false;
     }
 

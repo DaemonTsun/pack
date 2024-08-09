@@ -2,6 +2,7 @@
 #include "t1/t1.hpp"
 #include "fs/path.hpp"
 #include "shl/error.hpp"
+#include "shl/print.hpp"
 #include "shl/string.hpp"
 #include "shl/defer.hpp"
 #include "pack/pack_writer.hpp"
@@ -13,7 +14,7 @@
 fs::path out_path{};
 fs::path out_file{};
 fs::path test_file1{};
-const char *test_filename1 = "/test_file.txt";
+const char *test_filename1 = "test_file.txt";
 
 #define assert_flag_set(expr, flag)\
     assert_equal(expr & flag, flag)
@@ -30,7 +31,7 @@ void setup()
     fs::set_path(&out_path, exe_dir);
 
     fs::set_path(&out_file, exe_dir);
-    fs::append_path(&out_file, "/tmp");
+    fs::append_path(&out_file, "tmp");
 
     fs::set_path(&test_file1, exe_dir);
     fs::append_path(&test_file1, test_filename1);
@@ -86,7 +87,7 @@ define_test(pack_writer_writes_value_entries2)
     const char *name2 = "name of abc";
 
     pack_writer_add_entry(&writer, &value1, name1);
-    pack_writer_add_entry(&writer, &value2, name2);
+    pack_writer_add_entry(&writer, value2, name2);
 
     assert_equal(pack_writer_write_to_file(&writer, out_file, &err), true);
     assert_equal(err.error_code, 0);
@@ -192,7 +193,7 @@ define_test(pack_loader_loads_files)
     assert_equal(pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry, &err), true);
     assert_equal(err.error_code, 0);
 
-    assert_not_equal(entry.data, nullptr);
+    assert_not_equal(entry.data, (char*)nullptr);
     assert_equal(entry.size, 21);
 
     pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
