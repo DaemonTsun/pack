@@ -59,13 +59,14 @@ define_test(pack_writer_writes_value_entries)
     assert_equal(err.error_code, 0);
 
     pack_reader reader{};
+    defer { free(&reader); };
+
     assert_equal(pack_reader_load_from_path(&reader, out_file, &err), true);
     assert_equal(err.error_code, 0);
 
     assert_equal(reader.toc->entry_count, 1);
 
     pack_reader_entry entry{};
-    defer { free(&writer); };
 
     pack_reader_get_entry(&reader, 0, &entry);
 

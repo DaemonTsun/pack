@@ -20,7 +20,10 @@ void free(pack_loader *loader)
     if (loader->mode == pack_loader_mode::Package)
         free(&loader->reader);
     else
+    {
         pack_loader_clear_loaded_file_entries(loader);
+        free(&loader->files.loaded_entries);
+    }
 
     fill_memory(loader, 0);
 }
