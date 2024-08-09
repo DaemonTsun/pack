@@ -63,7 +63,7 @@ bool pack_writer_add_file(pack_writer *writer, const char *path, const char *nam
 
     s64 fsize = get_file_size(&stream, err);
 
-    if (fsize <= 0)
+    if (fsize < 0)
         return false;
 
     if (lazy)

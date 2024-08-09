@@ -140,7 +140,7 @@ static bool _add_path_files(fs::const_fs_string path, array<packer_path> *out_pa
             fs::path *index_path = ::add_at_end(&index_paths);
             fill_memory(index_path, 0);
 
-            if (!fs::canonical_path(strline, index_path, err))
+            if (!fs::weakly_canonical_path(strline, index_path, err))
                 return false;
         }
 
@@ -216,7 +216,7 @@ static bool _pack(arguments *args, error *err)
     }
 
     fs::path outp{};
-    fs::canonical_path(args->out_path, &outp);
+    fs::weakly_canonical_path(args->out_path, &outp);
     defer { fs::free(&outp); };
 
     if (fs::exists(&outp))
@@ -245,7 +245,7 @@ static bool _pack(arguments *args, error *err)
 
     for_array(input_path, &args->input_files)
     {
-        if (!fs::canonical_path(to_const_string(*input_path), &epath, err))
+        if (!fs::weakly_canonical_path(to_const_string(*input_path), &epath, err))
             return false;
 
         if (!_add_path_files(to_const_string(epath), &paths, args, err))
@@ -367,7 +367,7 @@ static bool _generate_header(arguments *args, error *err)
 
     for_array(path_, &args->input_files)
     {
-        if (!fs::canonical_path(*path_, &input_path, err))
+        if (!fs::weakly_canonical_path(*path_, &input_path, err))
             return false;
 
         if (!fs::is_file(&input_path))
@@ -392,7 +392,7 @@ static bool _generate_header(arguments *args, error *err)
 
         stream_format(&stream, "\n#define %s \"%s\"\n", var_prefix.data, rel.c_str());
         stream_format(&stream, "#define %s_file_count %u\n", var_prefix.data, reader.toc->entry_count);
-        stream_format(&stream, "static const char *%s_files[] = {\n", var_prefix.data);
+        stream_format(&stream, "[[maybe_unused]] static const char *%s_files[] = {\n", var_prefix.data);
 
         // find max entry name length
         s64 maxnamelen = 0;
@@ -408,7 +408,7 @@ static bool _generate_header(arguments *args, error *err)
                 maxnamelen = len;
         };
 
-        write(&stream, "};\n\n");
+        write(&stream, "};\n\n", 4);
 
         char entry_format_str[256] = {0};
         sprintf(entry_format_str, "#define %%s__%%-%lus %%u\n", maxnamelen);

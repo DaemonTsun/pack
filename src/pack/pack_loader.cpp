@@ -20,11 +20,9 @@ void free(pack_loader *loader)
     if (loader->mode == pack_loader_mode::Package)
         free(&loader->reader);
     else
-    {
         pack_loader_clear_loaded_file_entries(loader);
-        free(&loader->files.loaded_entries);
-    }
 
+    free(&loader->files.loaded_entries);
     fill_memory(loader, 0);
 }
 
@@ -33,7 +31,8 @@ void pack_loader_clear_loaded_file_entries(pack_loader *loader)
     assert(loader != nullptr);
 
     for_array(entry, &loader->files.loaded_entries)
-        dealloc((void*)entry->data, entry->size);
+        if (entry->data != nullptr)
+            dealloc((void*)entry->data, entry->size);
     
     fill_memory((void*)loader->files.loaded_entries.data, 0, sizeof(pack_file_entry) * loader->files.count);
 }
