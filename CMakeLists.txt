@@ -7,28 +7,25 @@ find_package(better REQUIRED PATHS ext/better-cmake/cmake)
 project(pack)
 project_author("DaemonTsun")
 
-set(TEST_SOURCE_DIR ${ROOT}/tests)
-set(TEST_BINARY_DIR ${ROOT}/tests)
-
 set(SOURCE_CMAKE_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/packConfig.cmake")
 
 add_lib(pack STATIC
-    VERSION 0.8.1
+    VERSION 0.8.2
     SOURCES_DIR "${ROOT}/src/"
     GENERATE_TARGET_HEADER "${ROOT}/src/pack/pack_info.hpp"
-    CPP_VERSION 17
+    CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
-    TESTS "${TEST_SOURCE_DIR}"
+    TESTS "${ROOT}/tests"
     EXT
-        LIB shl 0.7.0 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
-        LIB fs  0.6.3 "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
+        LIB shl 0.9.4 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
+        LIB fs  0.8.2 "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
     )
 
 add_exe(packer
-    VERSION 0.8.1
+    VERSION 0.8.2
     SOURCES_DIR "${ROOT}/packer-src"
     GENERATE_TARGET_HEADER "${ROOT}/packer-src/packer_info.hpp"
-    CPP_VERSION 17
+    CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
     LIBRARIES ${pack_TARGET}
     INCLUDE_DIRS "${pack_SOURCES_DIR}" ${pack_INCLUDE_DIRS}
@@ -46,14 +43,10 @@ if (packer_INSTALLED)
     add_subdirectory(demo)
 endif()
 
-find_package(t1 QUIET)
-if (t1_FOUND)
-    configure_file(${TEST_SOURCE_DIR}/test_file.txt
-                   ${TEST_BINARY_DIR}/test_file.txt
-                   COPYONLY)
-
-    configure_file(${TEST_SOURCE_DIR}/testpack.pack
-                   ${TEST_BINARY_DIR}/testpack.pack
-                   COPYONLY)
+if (DEFINED Tests)
+    copy_files(FILES ${ROOT}/tests/test_file.txt
+                     ${ROOT}/tests/testpack.pack
+               DESTINATION "${ROOT_BIN}"
+               BASE "${ROOT}")
 endif()
 

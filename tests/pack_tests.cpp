@@ -1,21 +1,18 @@
 
-#include <stdio.h>
-#include <string.h>
-#include <t1/t1.hpp>
-
+#include "t1/t1.hpp"
 #include "fs/path.hpp"
 #include "shl/error.hpp"
 #include "shl/string.hpp"
-#include "pack/package_writer.hpp"
-#include "pack/package_reader.hpp"
-#include "pack/package_loader.hpp"
+#include "shl/defer.hpp"
+#include "pack/pack_writer.hpp"
+#include "pack/pack_reader.hpp"
+#include "pack/pack_loader.hpp"
 
 #include "testpack.h"
 
-#define PATH_MAX 4096
-char out_path[PATH_MAX] = {0};
-char out_file[PATH_MAX] = {0};
-char test_file1[PATH_MAX] = {0};
+fs::path out_path{};
+fs::path out_file{};
+fs::path test_file1{};
 const char *test_filename1 = "/test_file.txt";
 
 #define assert_flag_set(expr, flag)\
@@ -23,177 +20,189 @@ const char *test_filename1 = "/test_file.txt";
 
 void setup()
 {
-    fs::path o;
-    fs::path parent;
-    fs::get_executable_path(&o);
-    fs::parent_path(&o, &parent);
+    fs::path exe_dir{};
+    defer { fs::free(&exe_dir); };
 
-    copy_string(o.c_str(), out_path, string_length(o.c_str()));
+    fs::get_executable_directory_path(&exe_dir);
 
-    fs::set_current_path(&parent);
+    fs::set_current_path(exe_dir);
 
-    char *s = strrchr(out_path, '/');
+    fs::set_path(&out_path, exe_dir);
 
-    if (s != nullptr)
-        *s = '\0';
+    fs::set_path(&out_file, exe_dir);
+    fs::append_path(&out_file, "/tmp");
 
-    copy_string(out_path, out_file, PATH_MAX);
-    copy_string(out_path, test_file1, PATH_MAX);
-
-    u64 len = string_length(out_file);
-    copy_string("/tmp", out_file + len, 4);
-    strncpy(out_file + len, "/tmp", 4);
-
-    copy_string(test_filename1, test_file1 + len, strlen(test_filename1)+1);
-    printf("%s\n", test_file1);
+    fs::set_path(&test_file1, exe_dir);
+    fs::append_path(&test_file1, test_filename1);
 }
 
-void cleanup() {}
-
-define_test(package_writer_writes_value_entries)
+void cleanup()
 {
-    package_writer writer;
+    fs::free(&out_path);
+    fs::free(&out_file);
+    fs::free(&test_file1);
+}
+
+define_test(pack_writer_writes_value_entries)
+{
+    error err{};
+    pack_writer writer{};
+    defer { free(&writer); };
 
     u32 value = 8;
     const char *name = "num";
 
-    add_entry(&writer, value, name);
+    pack_writer_add_entry(&writer, &value, name);
 
-    write(&writer, out_file);
-    free(&writer);
+    assert_equal(pack_writer_write_to_file(&writer, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
-    package_reader reader;
-    read(&reader, out_file);
+    pack_reader reader{};
+    assert_equal(pack_reader_load_from_path(&reader, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
     assert_equal(reader.toc->entry_count, 1);
 
-    package_reader_entry entry;
-    get_package_entry(&reader, 0, &entry);
+    pack_reader_entry entry{};
+    defer { free(&writer); };
 
-    assert_equal(strcmp(entry.name, name), 0);
-    assert_equal(entry.size, sizeof(value));
+    pack_reader_get_entry(&reader, 0, &entry);
+
+    assert_equal(compare_strings(entry.name, name), 0);
+    assert_equal(entry.size, (s64)sizeof(value));
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
-    assert_equal(*reinterpret_cast<u32*>(entry.content), value);
-
-    free(&reader);
+    assert_equal(*(u32*)(entry.content), value);
 }
 
-define_test(package_writer_writes_value_entries2)
+define_test(pack_writer_writes_value_entries2)
 {
-    package_writer writer;
+    error err{};
+    pack_writer writer{};
+    defer { free(&writer); };
 
     float value1 = 3.14f;
     const char *name1 = "f";
     const char *value2 = "abc";
     const char *name2 = "name of abc";
 
-    add_entry(&writer, value1, name1);
-    add_entry(&writer, value2, name2);
+    pack_writer_add_entry(&writer, &value1, name1);
+    pack_writer_add_entry(&writer, &value2, name2);
 
-    write(&writer, out_file);
-    free(&writer);
+    assert_equal(pack_writer_write_to_file(&writer, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
-    package_reader reader;
-    read(&reader, out_file);
+    pack_reader reader{};
+    defer { free(&reader); };
+
+    assert_equal(pack_reader_load_from_path(&reader, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
     assert_equal(reader.toc->entry_count, 2);
 
-    package_reader_entry entry;
-    get_package_entry(&reader, 0, &entry);
+    pack_reader_entry entry{};
+    pack_reader_get_entry(&reader, 0, &entry);
 
-    assert_equal(strcmp(entry.name, name1), 0);
-    assert_equal(entry.size, sizeof(value1));
+    assert_equal(compare_strings(entry.name, name1), 0);
+    assert_equal(entry.size, (s64)sizeof(value1));
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
-    assert_equal(*reinterpret_cast<float*>(entry.content), value1);
+    assert_equal(*(float*)(entry.content), value1);
 
-    get_package_entry(&reader, 1, &entry);
+    pack_reader_get_entry(&reader, 1, &entry);
 
-    assert_equal(strcmp(entry.name, name2), 0);
+    assert_equal(compare_strings(entry.name, name2), 0);
     assert_equal(entry.size, 3);
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
-    assert_equal(strncmp(reinterpret_cast<char*>(entry.content), value2, strlen(value2)), 0);
-
-    free(&reader);
+    assert_equal(compare_strings((char*)(entry.content), value2, string_length(value2)), 0);
 }
 
-define_test(package_writer_writes_files)
+define_test(pack_writer_writes_files)
 {
-    package_writer writer;
+    error err{};
+    pack_writer writer{};
+    defer { free(&writer); };
 
-    add_file(&writer, test_file1);
+    assert_equal(pack_writer_add_file(&writer, test_file1, true, &err), true);
+    assert_equal(err.error_code, 0);
 
-    write(&writer, out_file);
-    free(&writer);
+    assert_equal(pack_writer_write_to_file(&writer, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
-    package_reader reader;
-    read(&reader, out_file);
+    pack_reader reader{};
+    defer { free(&reader); };
+
+    assert_equal(pack_reader_load_from_path(&reader, out_file, &err), true);
+    assert_equal(err.error_code, 0);
 
     assert_equal(reader.toc->entry_count, 1);
 
-    package_reader_entry entry;
-    get_package_entry(&reader, 0, &entry);
+    pack_reader_entry entry{};
+    pack_reader_get_entry(&reader, 0, &entry);
 
-    assert_equal(strcmp(entry.name, test_file1), 0);
-    assert_equal(entry.size, 21u);
+    assert_equal(compare_strings(entry.name, to_const_string(test_file1)), 0);
+    assert_equal(entry.size, 21);
     assert_flag_set(entry.flags, PACK_TOC_FLAG_FILE);
-    assert_equal(strncmp(reinterpret_cast<char*>(entry.content), "This is a test file.\n", 21u), 0);
-
-    free(&reader);
+    assert_equal(compare_strings((char*)(entry.content), "This is a test file.\n"_cs), 0);
 }
 
-define_test(package_loader_loads_package_file)
+define_test(pack_loader_loads_package_file)
 {
-    package_loader loader;
+    error err{};
+    pack_loader loader{};
+    defer { free(&loader); };
 
-    fs::path pth(out_path);
-    fs::append_path(&pth, testpack_pack);
+    fs::path pth{};
+    defer { free(&pth); };
+    fs::set_path(&pth, out_path);
+    fs::append_path(&pth, testpack_pack); // Defined in testpack.h
 
-    load_package_file(&loader, pth.c_str());
+    assert_equal(pack_loader_load_package_file(&loader, pth.c_str(), &err), true);
+    assert_equal(err.error_code, 0);
 
     assert_equal(testpack_pack_file_count, 1);
 
-    memory_stream stream;
-    init(&stream);
+    pack_entry entry{};
 
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    assert_equal(pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry, &err), true);
+    assert_equal(err.error_code, 0);
 
-    assert_equal(stream.size, 21u);
+    assert_not_equal(entry.data, nullptr);
+    assert_equal(entry.size, 21);
 
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
 
-    assert_equal(stream.size, 21u);
-
-    free(&loader);
+    assert_not_equal(entry.data, nullptr);
+    assert_equal(entry.size, 21u);
 }
 
-define_test(package_loader_loads_files)
+define_test(pack_loader_loads_files)
 {
-    package_loader loader;
+    error err{};
+    pack_loader loader{};
+    defer { free(&loader); };
 
-    load_files(&loader, testpack_pack_files, testpack_pack_file_count);
+    pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count);
 
     assert_equal(testpack_pack_file_count, 1);
 
-    memory_stream stream;
-    init(&stream);
+    pack_entry entry{};
+    assert_equal(pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry, &err), true);
+    assert_equal(err.error_code, 0);
 
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
+    assert_not_equal(entry.data, nullptr);
+    assert_equal(entry.size, 21);
 
-    assert_equal(stream.size, 21u);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
+    pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
 
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-    load_entry(&loader, testpack_pack__test_file_txt, &stream);
-
-    assert_equal(stream.size, 21u);
-
-    free(&loader);
+    assert_not_equal(entry.data, nullptr);
+    assert_equal(entry.size, 21u);
 }
 
-define_test_main(setup(), cleanup());
+define_test_main(setup, cleanup);
