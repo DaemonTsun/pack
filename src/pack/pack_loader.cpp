@@ -20,9 +20,13 @@ void free(pack_loader *loader)
     if (loader->mode == pack_loader_mode::Package)
         free(&loader->reader);
     else
+    {
+        fs::free(&loader->files.base_path);
+        fs::free(&loader->files._entry_path);
         pack_loader_clear_loaded_file_entries(loader);
+        free(&loader->files.loaded_entries);
+    }
 
-    free(&loader->files.loaded_entries);
     fill_memory(loader, 0);
 }
 
@@ -47,7 +51,7 @@ bool pack_loader_load_package_file(pack_loader *loader, const char *filename, er
     return pack_reader_load_from_path(&loader->reader, filename, err);
 }
 
-void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_count)
+void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_count, const char *base_path)
 {
     assert(loader != nullptr);
     assert(files != nullptr);
@@ -57,6 +61,12 @@ void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_co
     loader->mode = pack_loader_mode::Files;
     loader->files.ptr = files;
     loader->files.count = file_count;
+
+    if (base_path != nullptr)
+        fs::set_path(&loader->files.base_path, base_path);
+    else
+        fs::set_path(&loader->files.base_path, ".");
+
     resize(&loader->files.loaded_entries, file_count);
     fill_memory((void*)loader->files.loaded_entries.data, 0, sizeof(pack_file_entry) * loader->files.count);
 }
@@ -82,11 +92,12 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
         assert(n < loader->files.loaded_entries.size);
         assert(loader->files.count == loader->files.loaded_entries.size);
 
-        const char *path = loader->files.ptr[n];
+        fs::set_path(&loader->files._entry_path, &loader->files.base_path);
+        fs::append_path(&loader->files._entry_path, loader->files.ptr[n]);
         pack_file_entry *loaded_entry = loader->files.loaded_entries.data + n;
         io_handle fh;
 
-        fh = io_open(path, open_mode::Read, err);
+        fh = io_open(loader->files._entry_path.c_str(), open_mode::Read, err);
 
         if (fh == INVALID_IO_HANDLE)
             return false;

@@ -16,7 +16,10 @@ static bool _run(error *err)
     if (!pack_loader_load_package_file(&loader, testpack_pack, err))
         return false;
 #else
-    pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count);
+    fs::path exe_dir{};
+    defer { fs::free(&exe_dir); };
+    fs::get_executable_directory_path(&exe_dir);
+    pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count, exe_dir.c_str());
 #endif
 
     pack_entry txt_entry{};

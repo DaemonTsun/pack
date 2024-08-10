@@ -8,6 +8,7 @@ package file, or from individual files from a list of file paths.
  */
 
 #include "shl/array.hpp"
+#include "fs/path.hpp"
 #include "pack/pack_reader.hpp"
 
 /* pack_loader has two different modes for loading:
@@ -46,6 +47,8 @@ struct pack_loader
         {
             const char **ptr;
             s64 count;
+            fs::path base_path;
+            fs::path _entry_path;
             array<pack_file_entry> loaded_entries;
         } files;
     };
@@ -57,7 +60,7 @@ void free(pack_loader *loader);
 void pack_loader_clear_loaded_file_entries(pack_loader *loader);
 
 bool pack_loader_load_package_file(pack_loader *loader, const char *filename, error *err = nullptr);
-void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_count);
+void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_count, const char *base_path = nullptr);
 
 // once either a package file or files are loaded, use this to get individual entries
 bool pack_loader_load_entry(pack_loader *loader, s64 entry, pack_entry *out, error *err = nullptr);
