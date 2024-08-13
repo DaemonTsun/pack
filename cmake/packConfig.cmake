@@ -129,12 +129,6 @@ endmacro()
 # pack/package_loader.hpp at GEN_HEADER.
 #             
 macro(add_package OUT_FILES_VAR OUT_PATH)
-    find_program(PACKER_EXEC packer)
-
-    if (NOT PACKER_EXEC)
-        message(FATAL_ERROR "could not find packer executable, install packer first.")
-    endif()
-
     set(_OPTIONS)
     set(_SINGLE_VAL_ARGS BASE GEN_HEADER)
     set(_MULTI_VAL_ARGS FILES)
@@ -163,11 +157,11 @@ macro(add_package OUT_FILES_VAR OUT_PATH)
     set(_INDEX_FILE "${OUT_PATH}_index")
     file(WRITE "${_INDEX_FILE}" "${_INDEX}")
 
-    message(DEBUG "  command:\n" "${PACKER_EXEC} -f -b ${ADD_PACKAGE_BASE} -o ${OUT_PATH} ${_INDEX_FILE}")
+    message(DEBUG "  command:\n" "${packer_TARGET} -f -b ${ADD_PACKAGE_BASE} -o ${OUT_PATH} ${_INDEX_FILE}")
 
     add_custom_command(
         OUTPUT "${OUT_PATH}"
-        COMMAND "${PACKER_EXEC}" "-f" "-b" "${ADD_PACKAGE_BASE}" "-o" "${OUT_PATH}" "${_INDEX_FILE}"
+        COMMAND "${packer_TARGET}" "-f" "-b" "${ADD_PACKAGE_BASE}" "-o" "${OUT_PATH}" "${_INDEX_FILE}"
         MAIN_DEPENDENCY "${_INDEX_FILE}"
         DEPENDS "${ADD_PACKAGE_FILES}" "${_INDEX_FILE}")
 
@@ -176,9 +170,10 @@ macro(add_package OUT_FILES_VAR OUT_PATH)
     if (DEFINED ADD_PACKAGE_GEN_HEADER)
         add_custom_command(
             OUTPUT "${ADD_PACKAGE_GEN_HEADER}"
-            COMMAND "${PACKER_EXEC}" "-f" "-g" "-o" "${ADD_PACKAGE_GEN_HEADER}" "${OUT_PATH}"
+            COMMAND "${packer_TARGET}" "-f" "-g" "-o" "${ADD_PACKAGE_GEN_HEADER}" "${OUT_PATH}"
             MAIN_DEPENDENCY "${OUT_PATH}"
-            DEPENDS "${OUT_PATH}")
+            DEPENDS "${OUT_PATH}" "${packer_TARGET}"
+            VERBATIM)
     endif()
 
     unset(_INDEX)

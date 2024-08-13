@@ -36,12 +36,7 @@ exit_if_included()
 install(FILES "${SOURCE_CMAKE_CONFIG_FILE}" DESTINATION "share/${PROJECT_NAME}/cmake")
 
 # demo
-find_program(packer_INSTALLED packer)
-
-if (packer_INSTALLED)
-    message(DEBUG "found packer: ${packer_INSTALLED}")
-    add_subdirectory(demo)
-endif()
+add_subdirectory(demo)
 
 if (DEFINED Tests)
     copy_files(FILES ${ROOT}/tests/test_file.txt

@@ -12,14 +12,16 @@ static bool _run(error *err)
 
     init(&loader);
 
-#ifdef NDEBUG
-    if (!pack_loader_load_package_file(&loader, testpack_pack, err))
-        return false;
-#else
     fs::path exe_dir{};
     defer { fs::free(&exe_dir); };
     fs::get_executable_directory_path(&exe_dir);
+
+#ifndef NDEBUG
     pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count, exe_dir.c_str());
+#else
+    fs::append_path(&exe_dir, testpack_pack);
+    if (!pack_loader_load_package_file(&loader, exe_dir.c_str(), err))
+        return false;
 #endif
 
     pack_entry txt_entry{};

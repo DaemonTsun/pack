@@ -39,9 +39,11 @@ pack(OUTPUT_FILES
 
 add_exe(pack-demo
     VERSION 1.0
+    SOURCES ${OUTPUT_FILES}
     SOURCES_DIR "${DEMODIR}/src"
     INCLUDE_DIRS "${pack_SOURCES_DIR}" "${pack_INCLUDE_DIRS}"
     CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
     LIBRARIES ${pack_TARGET}
     )
+
