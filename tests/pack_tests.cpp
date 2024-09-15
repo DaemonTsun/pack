@@ -141,9 +141,16 @@ define_test(pack_writer_writes_files)
     pack_reader_get_entry(&reader, 0, &entry);
 
     assert_equal(string_compare(entry.name, to_const_string(test_file1)), 0);
-    assert_equal(entry.size, 21);
     assert_flag_set(entry.flags, PACK_TOC_FLAG_FILE);
+
+#if Windows
+    // have to account for \r\n........
+    assert_equal(entry.size, 22);
+    assert_equal(string_compare((char*)(entry.content), "This is a test file.\r\n"_cs), 0);
+#else
+    assert_equal(entry.size, 21);
     assert_equal(string_compare((char*)(entry.content), "This is a test file.\n"_cs), 0);
+#endif
 }
 
 define_test(pack_loader_loads_package_file)
@@ -195,7 +202,12 @@ define_test(pack_loader_loads_files)
     assert_equal(err.error_code, 0);
 
     assert_not_equal(entry.data, (char*)nullptr);
+
+#if Windows
+    assert_equal(entry.size, 22);
+#else
     assert_equal(entry.size, 21);
+#endif
 
     pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
     pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
@@ -204,7 +216,11 @@ define_test(pack_loader_loads_files)
     pack_loader_load_entry(&loader, testpack_pack__test_file_txt, &entry);
 
     assert_not_equal(entry.data, nullptr);
-    assert_equal(entry.size, 21u);
+#if Windows
+    assert_equal(entry.size, 22);
+#else
+    assert_equal(entry.size, 21);
+#endif
 }
 
 define_test_main(setup, cleanup);

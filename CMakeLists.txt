@@ -9,12 +9,15 @@ project_author("DaemonTsun")
 
 set(SOURCE_CMAKE_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/packConfig.cmake")
 
+set(fs_COMPILE_DEFINITIONS @Windows)
+
 add_lib(pack STATIC
     VERSION 0.8.2
     SOURCES_DIR "${ROOT}/src/"
     GENERATE_TARGET_HEADER "${ROOT}/src/pack/pack_info.hpp"
     CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
+    COMPILE_DEFINITIONS ${fs_COMPILE_DEFINITIONS}
     TESTS "${ROOT}/tests"
     EXT
         LIB shl 0.10 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
@@ -27,7 +30,9 @@ add_exe(packer
     GENERATE_TARGET_HEADER "${ROOT}/packer-src/packer_info.hpp"
     CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
+        @MSVC /wd4129 /wd4477 # false printf warnings, these DO NOT apply to format
     LIBRARIES ${pack_TARGET}
+    COMPILE_DEFINITIONS ${fs_COMPILE_DEFINITIONS}
     INCLUDE_DIRS "${pack_SOURCES_DIR}" ${pack_INCLUDE_DIRS}
     )
 

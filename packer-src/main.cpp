@@ -1,8 +1,6 @@
 
 #include <stdio.h> // snprintf, getline
 
-[[noreturn]] extern void exit(int code);
-
 #include "fs/path.hpp"
 #include "shl/file_stream.hpp"
 #include "shl/memory.hpp"
@@ -22,6 +20,66 @@
 #define PACK_INDEX_EXTENSION "_index"
 
 #define stream_format(StreamPtr, ...) tprint((StreamPtr)->handle, __VA_ARGS__)
+
+#include "shl/compiler.hpp"
+
+#if MSVC
+#include <limits.h>
+#include <stdlib.h>
+// https://gist.github.com/mrkline/99630570e839a4af0e3b
+size_t getline(char** buf, size_t* bufLen, FILE* f)
+{
+	if (buf == nullptr || bufLen == nullptr)
+	{
+		errno = EINVAL;
+		return (size_t)-1;
+	}
+	
+	if (fgets(*buf, (int)*bufLen, f) != *buf)
+		return (size_t)-1;
+
+	while (true)
+	{
+		const size_t amountRead = strlen(*buf);
+		// If the length of the string is less than the whole buffer
+		// (minus the last space for \0) or the last character is a newline,
+		// we win. Done.
+		if (amountRead != *bufLen - 1 || (*buf)[amountRead - 1] == '\n')
+			return amountRead;
+
+		// We didn't have enought room, expand with realloc.
+
+		// First make sure we can.
+
+		// If we can't take any more, give up.
+		if (*bufLen == LONG_MAX)
+		{
+			errno = EOVERFLOW;
+			return (size_t)-1;
+		}
+
+		// If the MSB of bufLen is 1, doubling will overflow.
+		const bool willOverflow = (*bufLen >> (sizeof(size_t) * 8 - 1)) == 1;
+		const size_t newSize = willOverflow ? LONG_MAX : *bufLen * 2;
+
+		char* newBuf = static_cast<char*>(realloc(*buf, newSize));
+		if (newBuf == nullptr)
+		{
+			errno = ENOMEM;
+			return (size_t)-1;
+		}
+		// We succeeded in expanding.
+		*buf = newBuf;
+		*bufLen = newSize;
+		// Keep reading where we left off
+		char* const resumePoint = *buf + amountRead;
+		if (fgets(resumePoint, (int)(*bufLen - amountRead), f) != resumePoint)
+			return (size_t)-1;
+	}
+}
+#else
+[[noreturn]] extern void exit(int code);
+#endif
 
 struct arguments
 {
@@ -423,7 +481,7 @@ static bool _generate_header(arguments *args, error *err)
             string_set(&var_name, entry.name);
             _sanitize_name(&var_name);
 
-            stream_format(&stream, entry_format_str, var_prefix.data, var_name.data, i);
+            stream_format(&stream, to_const_string(entry_format_str, 255), var_prefix.data, var_name.data, i);
         }
     }
 
@@ -624,7 +682,7 @@ static bool _list_package_contents(arguments *args, error *err)
         for (s64 i = 0; i < reader.toc->entry_count; ++i)
         {
             pack_reader_get_entry(&reader, i, &entry);
-            stream_format(&out, digit_fmt, i);
+            stream_format(&out, to_const_string(digit_fmt), i);
             _print_pack_reader_entry_flags(&out, &entry);
             
             if (args->verbose)
