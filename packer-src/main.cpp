@@ -481,7 +481,7 @@ static bool _generate_header(arguments *args, error *err)
             string_set(&var_name, entry.name);
             _sanitize_name(&var_name);
 
-            stream_format(&stream, to_const_string(entry_format_str, 255), var_prefix.data, var_name.data, i);
+            stream_format(&stream, (const char*)entry_format_str, var_prefix.data, var_name.data, i);
         }
     }
 
