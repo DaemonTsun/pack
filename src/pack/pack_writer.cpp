@@ -52,7 +52,7 @@ bool pack_writer_add_file(pack_writer *writer, const char *path, const char *nam
     pack_writer_entry *entry = add_at_end(&writer->entries);
     init(entry);
     entry->flags = PACK_TOC_FLAG_FILE;
-    copy_string(name, &entry->name);
+    string_copy(name, &entry->name);
 
     file_stream stream{};
 
@@ -103,7 +103,7 @@ void pack_writer_add_entry(pack_writer *writer, const char *str, const char *nam
     init(entry);
     entry->flags = PACK_TOC_NO_FLAGS;
     entry->type = pack_writer_entry_type::Memory;
-    copy_string(name, &entry->name);
+    string_copy(name, &entry->name);
 
     s64 len = string_length(str);
     init(&entry->memory, len);
@@ -120,7 +120,7 @@ void pack_writer_add_entry(pack_writer *writer, void *data, s64 size, const char
     init(entry);
     entry->flags = PACK_TOC_NO_FLAGS;
     entry->type = pack_writer_entry_type::Memory;
-    copy_string(name, &entry->name);
+    string_copy(name, &entry->name);
 
     init(&entry->memory, size);
     copy_memory(data, entry->memory.data, size);
@@ -194,7 +194,7 @@ bool pack_writer_write_to_file(pack_writer *writer, io_handle h, s64 offset, err
     s64 entry_count = writer->entries.size;
 
     package_header header{};
-    copy_string(PACK_HEADER_MAGIC, header.magic, 4);
+    string_copy(PACK_HEADER_MAGIC, header.magic, 4);
     header.version = PACK_VERSION;
     header.flags = PACK_NO_FLAGS;
 
@@ -286,7 +286,7 @@ bool pack_writer_write_to_file(pack_writer *writer, io_handle h, s64 offset, err
         return false;
 
     package_toc toc{};
-    copy_string(PACK_TOC_MAGIC, toc.magic, 4);
+    string_copy(PACK_TOC_MAGIC, toc.magic, 4);
     toc._padding = 0;
     toc.entry_count = entry_count;
 

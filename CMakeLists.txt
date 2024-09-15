@@ -17,8 +17,8 @@ add_lib(pack STATIC
     CPP_WARNINGS ALL SANE FATAL
     TESTS "${ROOT}/tests"
     EXT
-        LIB shl 0.9.4 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
-        LIB fs  0.8.2 "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
+        LIB shl 0.10 "${ROOT}/ext/shl" INCLUDE LINK GIT_SUBMODULE
+        LIB fs  0.9  "${ROOT}/ext/fs"  INCLUDE LINK GIT_SUBMODULE
     )
 
 add_exe(packer

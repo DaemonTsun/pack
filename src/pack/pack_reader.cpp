@@ -77,7 +77,7 @@ bool pack_reader_parse(pack_reader *reader, error *err)
 
     reader->header = (package_header*)reader->content;
 
-    if (compare_strings(reader->header->magic, PACK_HEADER_MAGIC, string_length(PACK_HEADER_MAGIC)) != 0)
+    if (string_compare(reader->header->magic, PACK_HEADER_MAGIC, string_length(PACK_HEADER_MAGIC)) != 0)
     {
         set_error(err, 2, "read_package: invalid package magic number");
         return false;
@@ -96,7 +96,7 @@ bool pack_reader_parse(pack_reader *reader, error *err)
 
     reader->toc = (package_toc*)(reader->content + toc_pos);
 
-    if (compare_strings(reader->toc->magic, PACK_TOC_MAGIC, string_length(PACK_TOC_MAGIC)) != 0)
+    if (string_compare(reader->toc->magic, PACK_TOC_MAGIC, string_length(PACK_TOC_MAGIC)) != 0)
     {
         set_error(err, 4, "reader_parse: invalid toc magic number");
         return false;
@@ -144,7 +144,7 @@ bool pack_reader_get_entry_by_name(const pack_reader *reader, const char *name, 
         _get_toc_entry(reader, i);
         const char *tocname = reader->content + toc_entry->name_offset;
 
-        if (compare_strings(tocname, name, len) == 0)
+        if (string_compare(tocname, name, len) == 0)
         {
             _get_package_entry_from_toc(reader, toc_entry, out_entry);
             found = true;

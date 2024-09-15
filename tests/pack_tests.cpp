@@ -28,13 +28,13 @@ void setup()
 
     fs::set_current_path(exe_dir);
 
-    fs::set_path(&out_path, exe_dir);
+    fs::path_set(&out_path, exe_dir);
 
-    fs::set_path(&out_file, exe_dir);
-    fs::append_path(&out_file, "tmp");
+    fs::path_set(&out_file, exe_dir);
+    fs::path_append(&out_file, "tmp");
 
-    fs::set_path(&test_file1, exe_dir);
-    fs::append_path(&test_file1, test_filename1);
+    fs::path_set(&test_file1, exe_dir);
+    fs::path_append(&test_file1, test_filename1);
 }
 
 void cleanup()
@@ -70,7 +70,7 @@ define_test(pack_writer_writes_value_entries)
 
     pack_reader_get_entry(&reader, 0, &entry);
 
-    assert_equal(compare_strings(entry.name, name), 0);
+    assert_equal(string_compare(entry.name, name), 0);
     assert_equal(entry.size, (s64)sizeof(value));
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
     assert_equal(*(u32*)(entry.content), value);
@@ -104,17 +104,17 @@ define_test(pack_writer_writes_value_entries2)
     pack_reader_entry entry{};
     pack_reader_get_entry(&reader, 0, &entry);
 
-    assert_equal(compare_strings(entry.name, name1), 0);
+    assert_equal(string_compare(entry.name, name1), 0);
     assert_equal(entry.size, (s64)sizeof(value1));
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
     assert_equal(*(float*)(entry.content), value1);
 
     pack_reader_get_entry(&reader, 1, &entry);
 
-    assert_equal(compare_strings(entry.name, name2), 0);
+    assert_equal(string_compare(entry.name, name2), 0);
     assert_equal(entry.size, 3);
     assert_equal(entry.flags, PACK_TOC_NO_FLAGS);
-    assert_equal(compare_strings((char*)(entry.content), value2, string_length(value2)), 0);
+    assert_equal(string_compare((char*)(entry.content), value2, string_length(value2)), 0);
 }
 
 define_test(pack_writer_writes_files)
@@ -140,10 +140,10 @@ define_test(pack_writer_writes_files)
     pack_reader_entry entry{};
     pack_reader_get_entry(&reader, 0, &entry);
 
-    assert_equal(compare_strings(entry.name, to_const_string(test_file1)), 0);
+    assert_equal(string_compare(entry.name, to_const_string(test_file1)), 0);
     assert_equal(entry.size, 21);
     assert_flag_set(entry.flags, PACK_TOC_FLAG_FILE);
-    assert_equal(compare_strings((char*)(entry.content), "This is a test file.\n"_cs), 0);
+    assert_equal(string_compare((char*)(entry.content), "This is a test file.\n"_cs), 0);
 }
 
 define_test(pack_loader_loads_package_file)
@@ -154,8 +154,8 @@ define_test(pack_loader_loads_package_file)
 
     fs::path pth{};
     defer { free(&pth); };
-    fs::set_path(&pth, out_path);
-    fs::append_path(&pth, testpack_pack); // Defined in testpack.h
+    fs::path_set(&pth, out_path);
+    fs::path_append(&pth, testpack_pack); // Defined in testpack.h
 
     assert_equal(pack_loader_load_package_file(&loader, pth.c_str(), &err), true);
     assert_equal(err.error_code, 0);

@@ -92,7 +92,7 @@ static bool _add_path_files(fs::const_fs_string path, array<packer_path> *out_pa
         {
             packer_path *pp = ::add_at_end(out_paths);
             fill_memory(pp, 0);
-            fs::set_path(&pp->input_path, path);
+            fs::path_set(&pp->input_path, path);
             fs::relative_path(&args->base_path, path, &pp->target_path);
             return true;
         }
@@ -100,11 +100,11 @@ static bool _add_path_files(fs::const_fs_string path, array<packer_path> *out_pa
         // check for index file, then get files from that
         fs::const_fs_string ext = fs::file_extension(path);
 
-        if (!::ends_with(ext, PACK_INDEX_EXTENSION))
+        if (!::string_ends_with(ext, PACK_INDEX_EXTENSION))
         {
             packer_path *pp = ::add_at_end(out_paths);
             fill_memory(pp, 0);
-            fs::set_path(&pp->input_path, path);
+            fs::path_set(&pp->input_path, path);
             fs::relative_path(&args->base_path, path, &pp->target_path);
             return true;
         }
@@ -131,10 +131,10 @@ static bool _add_path_files(fs::const_fs_string path, array<packer_path> *out_pa
             if (strline.size > 0)
                 strline.size--;
 
-            if (is_blank(strline))
+            if (string_is_blank(strline))
                 continue;
 
-            if (begins_with(strline, "##"_cs))
+            if (string_begins_with(strline, "##"_cs))
                 continue;
 
             fs::path *index_path = ::add_at_end(&index_paths);
@@ -200,9 +200,9 @@ static char _choice_prompt(const char *message, const char *choices, arguments *
         if (input == (char)-1)
             return 'x';
 
-        c = to_lower(input);
+        c = char_to_lower(input);
     }
-    while (index_of(choices, c) == -1);
+    while (string_index_of(choices, const_string{&c, 1}) == -1);
 
     return c;
 }
@@ -274,8 +274,8 @@ static bool _pack(arguments *args, error *err)
 static void _sanitize_name(string *s)
 {
     // printf("before: %s, %lu\n", s->data, s->data.size);
-    replace_all(s, '.', '_'); 
-    replace_all(s, '/', '_'); 
+    string_replace_all(s, ".", "_"); 
+    string_replace_all(s, "/", "_"); 
 
     s64 i = 0;
 
@@ -381,7 +381,7 @@ static bool _generate_header(arguments *args, error *err)
         if (args->verbose)
             tprint("reading toc of archive %s\n", input_path.c_str());
 
-        set_string(&var_prefix, to_const_string(rel));
+        string_set(&var_prefix, to_const_string(rel));
         _sanitize_name(&var_prefix);
 
         free(&reader);
@@ -420,7 +420,7 @@ static bool _generate_header(arguments *args, error *err)
             if (args->verbose)
                 tprint("  adding entry %s\n", entry.name);
 
-            set_string(&var_name, entry.name);
+            string_set(&var_name, entry.name);
             _sanitize_name(&var_name);
 
             stream_format(&stream, entry_format_str, var_prefix.data, var_name.data, i);
@@ -434,7 +434,7 @@ static bool _extract_package(arguments *args, pack_reader *reader, error *err)
 {
     pack_reader_entry entry{};
     fs::path outp{};
-    fs::set_path(&outp, args->out_path);
+    fs::path_set(&outp, args->out_path);
     defer { fs::free(&outp); };
 
     fs::path epath{};
@@ -461,8 +461,8 @@ static bool _extract_package(arguments *args, pack_reader *reader, error *err)
             continue;
         }
 
-        fs::set_path(&epath, outp);
-        fs::append_path(&epath, entry.name);
+        fs::path_set(&epath, outp);
+        fs::path_append(&epath, entry.name);
 
         fs::parent_path(&epath, &parent);
 
@@ -537,7 +537,7 @@ static bool _extract_packages(arguments *args, error *err)
 
     for_array(path, &args->input_files)
     {
-        fs::set_path(&p, path->c_str);
+        fs::path_set(&p, path->c_str);
 
         if (!fs::is_file(&p))
         {
@@ -728,7 +728,7 @@ static bool _parse_arguments(int argc, char **argv, arguments *args, error *err)
         {
             const char *narg;
             _next_arg(narg, argc, argv, i);
-            fs::set_path(&args->out_path, narg);
+            fs::path_set(&args->out_path, narg);
             continue;
         }
 
@@ -743,7 +743,7 @@ static bool _parse_arguments(int argc, char **argv, arguments *args, error *err)
             continue;
         }
 
-        if (compare_strings(arg, "-"_cs, 1) == 0)
+        if (string_compare(arg, "-"_cs, 1) == 0)
         {
             format_error(err, 1, "unexpected argument '%s'", arg);
             return false;

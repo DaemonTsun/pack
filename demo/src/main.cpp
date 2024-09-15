@@ -19,7 +19,7 @@ static bool _run(error *err)
 #ifndef NDEBUG
     pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count, exe_dir.c_str());
 #else
-    fs::append_path(&exe_dir, testpack_pack);
+    fs::path_append(&exe_dir, testpack_pack);
     if (!pack_loader_load_package_file(&loader, exe_dir.c_str(), err))
         return false;
 #endif

@@ -63,9 +63,9 @@ void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_co
     loader->files.count = file_count;
 
     if (base_path != nullptr)
-        fs::set_path(&loader->files.base_path, base_path);
+        fs::path_set(&loader->files.base_path, base_path);
     else
-        fs::set_path(&loader->files.base_path, ".");
+        fs::path_set(&loader->files.base_path, ".");
 
     resize(&loader->files.loaded_entries, file_count);
     fill_memory((void*)loader->files.loaded_entries.data, 0, sizeof(pack_file_entry) * loader->files.count);
@@ -92,8 +92,8 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
         assert(n < loader->files.loaded_entries.size);
         assert(loader->files.count == loader->files.loaded_entries.size);
 
-        fs::set_path(&loader->files._entry_path, &loader->files.base_path);
-        fs::append_path(&loader->files._entry_path, loader->files.ptr[n]);
+        fs::path_set(&loader->files._entry_path, &loader->files.base_path);
+        fs::path_append(&loader->files._entry_path, loader->files.ptr[n]);
         pack_file_entry *loaded_entry = loader->files.loaded_entries.data + n;
         io_handle fh;
 
@@ -107,7 +107,7 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
         s64 timestamp = 0;
         fs::filesystem_info info{};
 
-        if (!fs::get_filesystem_info(fh, &info, FS_QUERY_FILE_TIMES, err))
+        if (!fs::query_filesystem(fh, &info, fs::query_flag::FileTimes, err))
             return false;
 
 #if Windows
