@@ -31,9 +31,9 @@ add_exe(packer
     CPP_VERSION 20
     CPP_WARNINGS ALL SANE FATAL
         @MSVC /wd4129 /wd4477 # false printf warnings, these DO NOT apply to format
-    LIBRARIES ${pack_TARGET}
+    LIBRARIES pack-0.8.2
     COMPILE_DEFINITIONS ${fs_COMPILE_DEFINITIONS}
-    INCLUDE_DIRS "${pack_SOURCES_DIR}" ${pack_INCLUDE_DIRS}
+    INCLUDE_DIRS "${pack-0.8.2_SOURCES_DIR}" ${pack-0.8.2_INCLUDE_DIRS}
     )
 
 exit_if_included()
