@@ -142,11 +142,13 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
             if (fsize < 0)
                 return false;
             
-            loaded_entry->data = (char*)alloc(fsize);
+            loaded_entry->data = (char*)alloc(fsize+1);
             loaded_entry->size = fsize;
 
             if (!read_entire_file(&fstream, loaded_entry->data, fsize, err))
                 return false;
+
+            loaded_entry->data[fsize] = '\0';
 
             loaded_entry->timestamp = timestamp;
         }
