@@ -41,7 +41,7 @@ macro(generate_header OUT_PATH)
     list(LENGTH GENERATE_HEADER_FILES ENTRY_COUNT)
 
     set(_HEADER "${_HEADER}#define ${SAFE_REL_PACKAGE}_file_count ${ENTRY_COUNT}\n")
-    set(_HEADER "${_HEADER}static const char *${SAFE_REL_PACKAGE}_files[] = {\n")
+    set(_HEADER "${_HEADER}[[maybe_unused]] static const char *${SAFE_REL_PACKAGE}_files[] = {\n")
 
     set(_HEADER_DEFS "")
 
