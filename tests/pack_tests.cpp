@@ -223,4 +223,20 @@ define_test(pack_loader_loads_files)
 #endif
 }
 
+define_test(pack_loader_entry_name_gets_entry_name)
+{
+    error err{};
+    pack_loader loader{};
+    defer { free(&loader); };
+
+    pack_loader_load_files(&loader, testpack_pack_files, testpack_pack_file_count);
+
+    assert_equal(testpack_pack_file_count, 1);
+
+    const char *name = pack_loader_entry_name(&loader, testpack_pack__test_file_txt, &err);
+
+    assert_equal(err.error_code, 0);
+    assert_equal(to_const_string(name), to_const_string(testpack_pack_files[testpack_pack__test_file_txt]));
+}
+
 define_test_main(setup, cleanup);

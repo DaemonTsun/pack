@@ -71,6 +71,16 @@ void pack_loader_load_files(pack_loader *loader, const char **files, s64 file_co
     fill_memory((void*)loader->files.loaded_entries.data, 0, sizeof(pack_file_entry) * loader->files.count);
 }
 
+s64 pack_loader_entry_count(pack_loader *loader)
+{
+    assert(loader != nullptr);
+
+    if (loader->mode == pack_loader_mode::Package)
+        return loader->reader.toc->entry_count;
+    else
+        return loader->files.count;
+}
+
 bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, error *err)
 {
     assert(loader != nullptr);
@@ -84,6 +94,7 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
 
         out_entry->data = rentry.content;
         out_entry->size = rentry.size;
+        out_entry->name = rentry.name;
     }
     else
     {
@@ -115,6 +126,8 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
 #else
         timestamp = info.stx_mtime.tv_sec;
 #endif
+
+        out_entry->name = loader->files.ptr[n];
 
         if (loaded_entry->data != nullptr)
         {
@@ -156,4 +169,25 @@ bool pack_loader_load_entry(pack_loader *loader, s64 n, pack_entry *out_entry, e
     }
 
     return true;
+}
+
+const char *pack_loader_entry_name(pack_loader *loader, s64 entry, error *err)
+{
+    assert(loader != nullptr);
+    assert(entry >= 0);
+
+    if (loader->mode == pack_loader_mode::Package)
+    {
+        pack_entry ent{};
+
+        if (!pack_loader_load_entry(loader, entry, &ent, err))
+            return nullptr;
+
+        return ent.name;
+    }
+    else
+    {
+        assert(entry < loader->files.count);
+        return loader->files.ptr[entry];
+    }
 }

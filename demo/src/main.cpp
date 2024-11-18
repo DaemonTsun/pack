@@ -30,6 +30,10 @@ static bool _run(error *err)
         return false;
 
     tprint("%s\n", const_string{txt_entry.data, txt_entry.size});
+    tprint("\nFiles found:\n");
+
+    for (s64 i = 0; i < pack_loader_entry_count(&loader); ++i)
+        tprint("% %\n", i, pack_loader_entry_name(&loader, i));
 
     return true;
 }
