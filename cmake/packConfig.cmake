@@ -29,7 +29,9 @@ macro(generate_header OUT_PATH)
         message(FATAL_ERROR "generate_header: missing BASE path")
     endif()
 
-    cmake_path(RELATIVE_PATH GENERATE_HEADER_PACKAGE BASE_DIRECTORY "${GENERATE_HEADER_BASE}" OUTPUT_VARIABLE REL_PACKAGE)
+    cmake_path(RELATIVE_PATH GENERATE_HEADER_PACKAGE
+               BASE_DIRECTORY "${GENERATE_HEADER_BASE}"
+               OUTPUT_VARIABLE REL_PACKAGE)
 
     sanitize_path(SAFE_REL_PACKAGE "${REL_PACKAGE}")
 
@@ -39,7 +41,7 @@ macro(generate_header OUT_PATH)
     list(LENGTH GENERATE_HEADER_FILES ENTRY_COUNT)
 
     set(_HEADER "${_HEADER}#define ${SAFE_REL_PACKAGE}_file_count ${ENTRY_COUNT}\n")
-    set(_HEADER "${_HEADER}static const char *${SAFE_REL_PACKAGE}_files[] = {\n")
+    set(_HEADER "${_HEADER}[[maybe_unused]] static const char *${SAFE_REL_PACKAGE}_files[] = {\n")
 
     set(_HEADER_DEFS "")
 
@@ -60,18 +62,21 @@ macro(generate_header OUT_PATH)
 endmacro()
 
 # add_files(<OUT_VAR> <PATH>
+#           [LINK]
 #           BASE <base path>
 #           [PACKAGE <package name>
 #           GEN_HEADER <header file>]
 #           FILES <files...>)
 #
-# Adds dependency targets for copying FILES to PATH, relative to BASE and
+# Adds dependency targets for copying (or linking) FILES to PATH, relative to BASE and
 # stores the list of target paths in OUT_VAR. 
 #
 # If PACKAGE and GEN_HEADER are set, generates a header file for use with
 # pack/package_loader.hpp at GEN_HEADER.
+#
+# If LINK is set, files are linked instead of copied.
 macro(add_files OUT_FILES_VAR OUT_PATH)
-    set(_OPTIONS)
+    set(_OPTIONS LINK)
     set(_SINGLE_VAL_ARGS BASE PACKAGE GEN_HEADER)
     set(_MULTI_VAL_ARGS FILES)
 
@@ -92,12 +97,21 @@ macro(add_files OUT_FILES_VAR OUT_PATH)
         cmake_path(GET _OUT_FILE PARENT_PATH _PARENT)
         file(MAKE_DIRECTORY "${_PARENT}")
 
-        message(DEBUG "adding target to copy ${_FILE} to ${_OUT_FILE}")
+        if (ADD_FILES_LINK)
+            message(DEBUG "adding target to link ${_FILE} to ${_OUT_FILE}")
 
-        add_custom_command(
-            OUTPUT "${_OUT_FILE}"
-            COMMAND ${CMAKE_COMMAND} -E copy "${_FILE}" "${_OUT_FILE}"
-            DEPENDS "${_FILE}")
+            add_custom_command(
+                OUTPUT "${_OUT_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E create_symlink "${_FILE}" "${_OUT_FILE}"
+                DEPENDS "${_FILE}")
+        else()
+            message(DEBUG "adding target to copy ${_FILE} to ${_OUT_FILE}")
+
+            add_custom_command(
+                OUTPUT "${_OUT_FILE}"
+                COMMAND ${CMAKE_COMMAND} -E copy "${_FILE}" "${_OUT_FILE}"
+                DEPENDS "${_FILE}")
+        endif()
 
         list(APPEND ${OUT_FILES_VAR} "${_OUT_FILE}")
     endforeach()
